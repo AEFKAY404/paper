@@ -11,6 +11,9 @@ private final class MockSession: BrowserSession {
     var forwardCount = 0
     var reloadCount = 0
     var closed = false
+    var snapshotCalls = 0
+    var snapshotDelayMs = 0
+    var snapshotImage: NSImage?
 
     func load(_ url: URL) {
         loadedURLs.append(url)
@@ -21,6 +24,12 @@ private final class MockSession: BrowserSession {
     func reload() { reloadCount += 1 }
     func stop() {}
     func focus() {}
+    func setHistorySwipe(enabled: Bool) {}
+    func snapshot(maxWidth: CGFloat) async -> NSImage? {
+        snapshotCalls += 1
+        if snapshotDelayMs > 0 { try? await Task.sleep(for: .milliseconds(snapshotDelayMs)) }
+        return snapshotImage
+    }
     func close() { closed = true }
 }
 
@@ -102,11 +111,30 @@ struct PaperTests {
     }
 
     @Test func deliberateTabSwipeMapping() {
-        let gestures = GestureEngine()
-        #expect(gestures.actionForOptionSwipe(deltaX: -1, optionHeld: false) == nil)
-        #expect(gestures.actionForOptionSwipe(deltaX: -0.2, optionHeld: true) == nil)
-        #expect(gestures.actionForOptionSwipe(deltaX: -1, optionHeld: true) == .nextTab)
-        #expect(gestures.actionForOptionSwipe(deltaX: 1, optionHeld: true) == .previousTab)
+        var gestures = GestureEngine()
+        let enabled = GestureConfiguration(customGesturesEnabled: true, tabSwitchGesture: .optionSwipe, overlayVisible: false)
+        #expect(gestures.actionForSwipe(deltaX: -1, deltaY: 0, optionOnly: false, timestamp: 1, configuration: enabled) == nil)
+        #expect(gestures.actionForSwipe(deltaX: -0.2, deltaY: 0, optionOnly: true, timestamp: 1, configuration: enabled) == nil)
+        #expect(gestures.actionForSwipe(deltaX: -1, deltaY: 0, optionOnly: true, timestamp: 1, configuration: enabled) == .nextTab)
+        #expect(gestures.actionForSwipe(deltaX: 1, deltaY: 0, optionOnly: true, timestamp: 1.1, configuration: enabled) == nil)
+        #expect(gestures.actionForSwipe(deltaX: 1, deltaY: 0, optionOnly: true, timestamp: 1.4, configuration: enabled) == .previousTab)
+        #expect(gestures.actionForSwipe(deltaX: 1, deltaY: 1, optionOnly: true, timestamp: 2, configuration: enabled) == nil)
+        #expect(gestures.actionForSwipe(deltaX: 1, deltaY: 0, optionOnly: true, timestamp: 2,
+                                        configuration: GestureConfiguration(customGesturesEnabled: true, tabSwitchGesture: .optionSwipe, overlayVisible: true)) == nil)
+        #expect(gestures.actionForSwipe(deltaX: 1, deltaY: 0, optionOnly: true, timestamp: 2,
+                                        configuration: GestureConfiguration(customGesturesEnabled: false, tabSwitchGesture: .optionSwipe, overlayVisible: false)) == nil)
+    }
+
+    @Test func legacyGesturePreferenceMigration() {
+        let defaults = UserDefaults(suiteName: UUID().uuidString)!
+        defaults.set(true, forKey: "paper.tabSwipe")
+        let preferences = InteractionPreferences(defaults: defaults)
+        preferences.migrateLegacyGestureSetting()
+        #expect(preferences.configuration.customGesturesEnabled)
+        #expect(preferences.configuration.tabSwitchGesture == .optionSwipe)
+        defaults.set(false, forKey: InteractionPreferences.customGesturesKey)
+        preferences.migrateLegacyGestureSetting()
+        #expect(!preferences.configuration.customGesturesEnabled)
     }
 
     @Test func newTabIsNativeStateAndGoogleIsDefault() {
@@ -165,5 +193,125 @@ struct PaperTests {
         ui.openHandbook()
         #expect(ui.isHandbookVisible)
         #expect(!ui.isPaletteVisible)
+    }
+
+    @Test func overviewFilteringActivationAndClosure() {
+        let (browser, _, _) = makeController()
+        browser.start(restorePreviousSession: false)
+        let first = browser.activeTabID!
+        let second = browser.newTab(url: URL(string: "https://example.com"))
+        let ui = BrowserUIState()
+        ui.openOverview(browser: browser)
+        #expect(ui.isOverviewVisible)
+        ui.overviewQuery = "example"
+        #expect(ui.filteredTabs(browser.tabs).map(\.id) == [second])
+        ui.moveOverviewSelection(offset: 1, tabs: browser.tabs)
+        #expect(ui.overviewSelectionID == second)
+        let onboarding = OnboardingState(defaults: UserDefaults(suiteName: UUID().uuidString)!)
+        BrowserActionRouter.perform(.switchTab(first), browser: browser, ui: ui, onboarding: onboarding)
+        #expect(browser.activeTabID == first)
+        #expect(!ui.isOverviewVisible)
+        browser.closeTab(second)
+        #expect(browser.tabs.count == 1)
+    }
+
+    @Test func paletteSuggestionsAndRouting() {
+        let (browser, _, _) = makeController()
+        browser.start(restorePreviousSession: false)
+        let ui = BrowserUIState()
+        let onboarding = OnboardingState(defaults: UserDefaults(suiteName: UUID().uuidString)!)
+        #expect(PaletteSuggestion.matching("overview", tabs: browser.tabs).first?.action == .overview)
+        #expect(PaletteSuggestion.matching("settings", tabs: browser.tabs).first?.action == .settings)
+        BrowserActionRouter.perform(.newTab, browser: browser, ui: ui, onboarding: onboarding)
+        #expect(browser.tabs.count == 2)
+        BrowserActionRouter.perform(.overview, browser: browser, ui: ui, onboarding: onboarding)
+        #expect(ui.isOverviewVisible)
+        BrowserActionRouter.perform(.closeTab, browser: browser, ui: ui, onboarding: onboarding)
+        #expect(browser.tabs.count == 1)
+        var settingsOpened = false
+        BrowserActionRouter.perform(.settings, browser: browser, ui: ui, onboarding: onboarding,
+                                    openSettings: { settingsOpened = true })
+        #expect(settingsOpened)
+    }
+
+    @Test func snapshotQueueIsBoundedAndCacheReused() async {
+        let (browser, engine, _) = makeController()
+        browser.start(restorePreviousSession: false)
+        for index in 0..<20 {
+            browser.newTab(url: URL(string: "https://example.com/\(index)"), activate: false)
+            engine.sessions[index + 1].snapshotDelayMs = 10
+            engine.sessions[index + 1].snapshotImage = NSImage(size: NSSize(width: 100, height: 60))
+        }
+        let previews = TabPreviewStore()
+        previews.present(browser: browser)
+        #expect(previews.inFlightCount == 0)
+        for tab in browser.tabs where tab.kind == .webpage { previews.cardAppeared(tab.id, browser: browser) }
+        #expect(previews.inFlightCount <= 2)
+        try? await Task.sleep(for: .milliseconds(350))
+        #expect(previews.maxInFlightObserved <= 2)
+        #expect(previews.cacheCount <= TabPreviewStore.maxEntries)
+        #expect(previews.cacheBytes <= TabPreviewStore.maxCacheBytes)
+        let cached = browser.tabs[2].id
+        let calls = engine.sessions[2].snapshotCalls
+        previews.request(cached, browser: browser)
+        #expect(engine.sessions[2].snapshotCalls == calls)
+        engine.sessions[2].onEvent?(.navigationSucceeded)
+        previews.reconcile(browser: browser)
+        #expect(previews.previews[cached] == nil)
+        previews.removeTab(cached)
+        browser.closeTab(cached)
+        #expect(previews.previews[cached] == nil)
+        previews.dismiss()
+        #expect(previews.inFlightCount <= 2)
+    }
+
+    @Test func interactionPreferencesPersistAndMotionCanBeDisabled() {
+        let defaults = UserDefaults(suiteName: UUID().uuidString)!
+        defaults.set(true, forKey: InteractionPreferences.customGesturesKey)
+        defaults.set(TabSwitchGesture.disabled.rawValue, forKey: InteractionPreferences.tabGestureKey)
+        defaults.set(false, forKey: InteractionPreferences.feedbackKey)
+        defaults.set(true, forKey: InteractionPreferences.reduceMotionKey)
+        let prefs = InteractionPreferences(defaults: defaults)
+        #expect(prefs.configuration.customGesturesEnabled)
+        #expect(prefs.configuration.tabSwitchGesture == .disabled)
+        #expect(!prefs.feedbackEnabled)
+        #expect(prefs.reducedMotion)
+        #expect(PaperMotion.overlay(reduceMotion: prefs.reducedMotion) == nil)
+    }
+
+    @Test func snapshotQueueBenchmarkWorkloads() async throws {
+        var rows: [[String: Any]] = []
+        for count in [1, 5, 10, 20] {
+            let (browser, engine, _) = makeController()
+            browser.start(restorePreviousSession: false)
+            for index in 0..<count {
+                browser.newTab(url: URL(string: "https://example.com/\(index)"), activate: false)
+                engine.sessions[index + 1].snapshotDelayMs = 15
+                engine.sessions[index + 1].snapshotImage = NSImage(size: NSSize(width: 320, height: 180))
+            }
+            let previews = TabPreviewStore()
+            let openStart = CFAbsoluteTimeGetCurrent()
+            previews.present(browser: browser)
+            let openMs = (CFAbsoluteTimeGetCurrent() - openStart) * 1_000
+            let captureStart = CFAbsoluteTimeGetCurrent()
+            for tab in browser.tabs where tab.kind == .webpage { previews.cardAppeared(tab.id, browser: browser) }
+            for _ in 0..<200 {
+                let completed = engine.sessions.dropFirst().reduce(0) { $0 + $1.snapshotCalls }
+                if completed == count && previews.inFlightCount == 0 { break }
+                try await Task.sleep(for: .milliseconds(10))
+            }
+            let captureMs = (CFAbsoluteTimeGetCurrent() - captureStart) * 1_000
+            rows.append(["tabs": count, "overviewStateMs": openMs, "queueCompletionMs": captureMs,
+                         "cacheBytes": previews.cacheBytes, "cacheEntries": previews.cacheCount,
+                         "maxConcurrent": previews.maxInFlightObserved])
+            #expect(previews.maxInFlightObserved <= 2)
+            #expect(previews.cacheBytes <= TabPreviewStore.maxCacheBytes)
+            previews.dismiss()
+            browser.shutdown()
+        }
+        let data = try JSONSerialization.data(withJSONObject: rows, options: [.prettyPrinted, .sortedKeys])
+        let output = FileManager.default.temporaryDirectory.appendingPathComponent("paper-phase1b-bench.json")
+        try data.write(to: output)
+        print("PAPER_BENCH_OUTPUT=\(output.path)")
     }
 }

@@ -24,7 +24,7 @@ struct PaperApp: App {
         .defaultSize(width: 1100, height: 750)
         .commands {
             CommandGroup(replacing: .newItem) {
-                Button("New Tab") { browser.newTab(); onboarding.record(.newTab) }
+                Button("New Tab") { perform(.newTab) }
                     .keyboardShortcut("t")
             }
             CommandMenu("Navigate") {
@@ -33,13 +33,15 @@ struct PaperApp: App {
                     onboarding.locationOpened()
                 }
                 .keyboardShortcut("l")
-                Button("Back") { browser.goBack() }.keyboardShortcut("[")
-                Button("Forward") { browser.goForward() }.keyboardShortcut("]")
-                Button("Reload") { browser.reload() }.keyboardShortcut("r")
+                Button("Back") { perform(.back) }.keyboardShortcut("[")
+                Button("Forward") { perform(.forward) }.keyboardShortcut("]")
+                Button("Reload") { perform(.reload) }.keyboardShortcut("r")
                 Button("Stop Loading") { browser.stop() }.keyboardShortcut(".")
             }
             CommandMenu("Tabs") {
-                Button("Close Tab") { browser.closeActiveTab(); onboarding.record(.closeTab) }.keyboardShortcut("w")
+                Button("Close Tab") { perform(.closeTab) }.keyboardShortcut("w")
+                Button("Tab Overview") { perform(.overview) }
+                    .keyboardShortcut("\\", modifiers: [.command, .shift])
                 Button("Next Tab") { browser.selectAdjacentTab(offset: 1); onboarding.record(.nextTab) }
                     .keyboardShortcut(.tab, modifiers: .control)
                 Button("Previous Tab") { browser.selectAdjacentTab(offset: -1) }
@@ -52,7 +54,11 @@ struct PaperApp: App {
         }
 
         Settings {
-            PaperSettingsView()
+            PaperSettingsView(browser: browser)
         }
+    }
+
+    private func perform(_ action: PaletteAction) {
+        BrowserActionRouter.perform(action, browser: browser, ui: ui, onboarding: onboarding)
     }
 }

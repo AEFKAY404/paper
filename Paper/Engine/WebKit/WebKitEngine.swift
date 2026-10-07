@@ -66,6 +66,17 @@ final class WebKitSession: NSObject, BrowserSession, WKNavigationDelegate, WKUID
         guard let window = webView.window else { return }
         window.makeFirstResponder(webView)
     }
+    func setHistorySwipe(enabled: Bool) {
+        webView.allowsBackForwardNavigationGestures = enabled
+    }
+    func snapshot(maxWidth: CGFloat) async -> NSImage? {
+        guard !closed, webView.url != nil, !webView.isLoading, webView.bounds.width > 0 else { return nil }
+        let configuration = WKSnapshotConfiguration()
+        configuration.snapshotWidth = NSNumber(value: Double(min(360, max(120, maxWidth))))
+        configuration.afterScreenUpdates = false
+        let image = try? await webView.takeSnapshot(configuration: configuration)
+        return closed ? nil : image
+    }
     func close() {
         guard !closed else { return }
         closed = true

@@ -4,8 +4,9 @@ final class PaperUITests: XCTestCase {
     @MainActor
     func testNewTabPaletteAndHandbook() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-paper.restoreSession", "NO", "-paper.onboarding.completed", "YES"]
+        app.launchArguments = ["-paper.restoreSession", "NO", "-paper.onboarding.completed", "YES", "-ApplePersistenceIgnoreState", "YES"]
         app.launch()
+        app.activate()
 
         let newTabSearch = app.textFields["paper.newTab.search"]
         XCTAssertTrue(newTabSearch.waitForExistence(timeout: 10))
@@ -20,8 +21,9 @@ final class PaperUITests: XCTestCase {
     @MainActor
     func testOnboardingCanBeSkipped() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-paper.restoreSession", "NO", "-paper.onboarding.completed", "NO"]
+        app.launchArguments = ["-paper.restoreSession", "NO", "-paper.onboarding.completed", "NO", "-ApplePersistenceIgnoreState", "YES"]
         app.launch()
+        app.activate()
         let skip = app.buttons["Skip introduction"]
         XCTAssertTrue(skip.waitForExistence(timeout: 10))
         skip.click()
@@ -32,8 +34,9 @@ final class PaperUITests: XCTestCase {
     @MainActor
     func testOnboardingPracticeStaysLocal() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-paper.restoreSession", "NO", "-paper.onboarding.completed", "NO"]
+        app.launchArguments = ["-paper.restoreSession", "NO", "-paper.onboarding.completed", "NO", "-ApplePersistenceIgnoreState", "YES"]
         app.launch()
+        app.activate()
         app.typeKey("l", modifierFlags: .command)
         let next = app.buttons["Continue"]
         XCTAssertTrue(next.waitForExistence(timeout: 5))
@@ -57,8 +60,9 @@ final class PaperUITests: XCTestCase {
     @MainActor
     func testTabCommandsAndSearchFocus() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-paper.restoreSession", "NO", "-paper.onboarding.completed", "YES"]
+        app.launchArguments = ["-paper.restoreSession", "NO", "-paper.onboarding.completed", "YES", "-ApplePersistenceIgnoreState", "YES"]
         app.launch()
+        app.activate()
         let search = app.textFields["paper.newTab.search"]
         XCTAssertTrue(search.waitForExistence(timeout: 10))
         search.typeText("example.com\n")
@@ -72,8 +76,9 @@ final class PaperUITests: XCTestCase {
     @MainActor
     func testKeyboardHandbookShortcut() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-paper.restoreSession", "NO", "-paper.onboarding.completed", "YES"]
+        app.launchArguments = ["-paper.restoreSession", "NO", "-paper.onboarding.completed", "YES", "-ApplePersistenceIgnoreState", "YES"]
         app.launch()
+        app.activate()
         app.typeKey("/", modifierFlags: [.command, .shift])
         XCTAssertTrue(app.scrollViews["paper.handbook"].waitForExistence(timeout: 5))
     }
@@ -81,8 +86,9 @@ final class PaperUITests: XCTestCase {
     @MainActor
     func testHelpMenuOpensHandbook() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-paper.restoreSession", "NO", "-paper.onboarding.completed", "YES"]
+        app.launchArguments = ["-paper.restoreSession", "NO", "-paper.onboarding.completed", "YES", "-ApplePersistenceIgnoreState", "YES"]
         app.launch()
+        app.activate()
         app.menuBars.menuBarItems["Help"].click()
         app.menuBars.menuItems["Paper Handbook"].click()
         XCTAssertTrue(app.scrollViews["paper.handbook"].waitForExistence(timeout: 5))
@@ -91,8 +97,9 @@ final class PaperUITests: XCTestCase {
     @MainActor
     func testHandbookReopensIntroduction() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-paper.restoreSession", "NO", "-paper.onboarding.completed", "YES"]
+        app.launchArguments = ["-paper.restoreSession", "NO", "-paper.onboarding.completed", "YES", "-ApplePersistenceIgnoreState", "YES"]
         app.launch()
+        app.activate()
         app.menuBars.menuBarItems["Help"].click()
         app.menuBars.menuItems["Paper Handbook"].click()
         let replay = app.buttons["Replay the introduction"]
@@ -104,8 +111,9 @@ final class PaperUITests: XCTestCase {
     @MainActor
     func testVisualSnapshots() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-paper.restoreSession", "NO", "-paper.onboarding.completed", "YES"]
+        app.launchArguments = ["-paper.restoreSession", "NO", "-paper.onboarding.completed", "YES", "-ApplePersistenceIgnoreState", "YES"]
         app.launch()
+        app.activate()
         XCTAssertTrue(app.textFields["paper.newTab.search"].waitForExistence(timeout: 10))
         let window = app.windows.firstMatch
         let newTab = XCTAttachment(screenshot: window.screenshot())
@@ -125,14 +133,58 @@ final class PaperUITests: XCTestCase {
     @MainActor
     func testDarkAppearance() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-paper.restoreSession", "NO", "-paper.onboarding.completed", "YES",
+        app.launchArguments = ["-paper.restoreSession", "NO", "-paper.onboarding.completed", "YES", "-ApplePersistenceIgnoreState", "YES",
                                "-paper.uiTest.dark"]
         app.launch()
+        app.activate()
         XCTAssertTrue(app.textFields["paper.newTab.search"].waitForExistence(timeout: 10))
         let snapshot = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
         snapshot.name = "Paper new tab dark"
         snapshot.lifetime = .keepAlways
         add(snapshot)
         app.textFields["paper.newTab.search"].typeText("p")
+    }
+
+    @MainActor
+    func testTabOverviewShortcutSearchAndDismissal() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-paper.restoreSession", "NO", "-paper.onboarding.completed", "YES", "-ApplePersistenceIgnoreState", "YES"]
+        app.launch()
+        app.activate()
+        XCTAssertTrue(app.textFields["paper.newTab.search"].waitForExistence(timeout: 10))
+        app.typeKey("t", modifierFlags: .command)
+        app.typeKey("\\", modifierFlags: [.command, .shift])
+        let search = app.textFields["paper.overview.search"]
+        XCTAssertTrue(search.waitForExistence(timeout: 5))
+        let shot = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
+        shot.name = "Paper tab overview"
+        shot.lifetime = .keepAlways
+        add(shot)
+        search.typeText("not-a-tab")
+        XCTAssertTrue(app.staticTexts["No matching tabs"].waitForExistence(timeout: 5))
+        app.typeKey(XCUIKeyboardKey.escape.rawValue, modifierFlags: [])
+        XCTAssertFalse(search.exists)
+        XCTAssertTrue(app.textFields["paper.newTab.search"].exists)
+        app.typeKey("\\", modifierFlags: [.command, .shift])
+        XCTAssertTrue(app.textFields["paper.overview.search"].waitForExistence(timeout: 5))
+        app.typeKey(XCUIKeyboardKey.leftArrow.rawValue, modifierFlags: [])
+        app.typeKey(XCUIKeyboardKey.return.rawValue, modifierFlags: [])
+        XCTAssertFalse(app.textFields["paper.overview.search"].exists)
+    }
+
+    @MainActor
+    func testPaletteActionOpensOverview() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-paper.restoreSession", "NO", "-paper.onboarding.completed", "YES", "-ApplePersistenceIgnoreState", "YES"]
+        app.launch()
+        app.activate()
+        XCTAssertTrue(app.textFields["paper.newTab.search"].waitForExistence(timeout: 10))
+        app.typeKey("l", modifierFlags: .command)
+        let palette = app.textFields["paper.commandPalette.input"]
+        XCTAssertTrue(palette.waitForExistence(timeout: 5))
+        palette.typeText("overview\n")
+        XCTAssertTrue(app.textFields["paper.overview.search"].waitForExistence(timeout: 5))
+        app.typeKey(XCUIKeyboardKey.escape.rawValue, modifierFlags: [])
+        XCTAssertFalse(app.textFields["paper.overview.search"].exists)
     }
 }

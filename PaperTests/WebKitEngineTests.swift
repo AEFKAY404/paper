@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import Testing
 import WebKit
@@ -101,5 +102,30 @@ struct WebKitEngineTests {
         #expect(errors.isEmpty, "Navigation errors: \(errors)")
         #expect(session.webView.url?.host == "example.com")
         #expect(session.webView.title?.isEmpty == false)
+    }
+
+    @Test func visibleWebViewProducesStaticSnapshot() async throws {
+        let session = WebKitSession()
+        let window = NSWindow(contentRect: NSRect(x: 40, y: 40, width: 800, height: 600),
+                              styleMask: [.titled], backing: .buffered, defer: false)
+        window.contentView = session.webView
+        window.orderFront(nil)
+        defer { session.close(); window.close() }
+        let url = try #require(URL(string: "data:text/html,%3Ctitle%3ESnapshot%3C/title%3E%3Ch1%3EPaper%3C/h1%3E"))
+        session.load(url)
+        for _ in 0..<100 where session.webView.title != "Snapshot" || session.webView.isLoading {
+            try await Task.sleep(for: .milliseconds(50))
+        }
+        let start = CFAbsoluteTimeGetCurrent()
+        let image = await session.snapshot(maxWidth: 320)
+        let milliseconds = (CFAbsoluteTimeGetCurrent() - start) * 1_000
+        print("PAPER_BENCH real_snapshot_ms=\(String(format: "%.2f", milliseconds)) width=\(image?.size.width ?? 0)")
+        let data = try JSONSerialization.data(withJSONObject: ["snapshotMs": milliseconds,
+                                                            "width": image?.size.width ?? 0,
+                                                            "height": image?.size.height ?? 0],
+                                              options: [.prettyPrinted, .sortedKeys])
+        try data.write(to: FileManager.default.temporaryDirectory.appendingPathComponent("paper-phase1b-webkit-snapshot.json"))
+        #expect(image != nil)
+        #expect((image?.size.width ?? 0) <= 360)
     }
 }

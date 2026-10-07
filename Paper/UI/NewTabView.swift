@@ -43,9 +43,13 @@ struct NewTabView: View {
         .padding(32)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(nsColor: .windowBackgroundColor))
-        .onAppear { focused = mayFocus }
-        .onChange(of: tabID) { _, _ in input = ""; focused = mayFocus }
-        .onChange(of: mayFocus) { _, allowed in focused = allowed }
+        .task(id: "\(tabID)-\(mayFocus)") {
+            guard mayFocus else { focused = false; return }
+            try? await Task.sleep(for: .milliseconds(80))
+            guard !Task.isCancelled else { return }
+            focused = true
+        }
+        .onChange(of: tabID) { _, _ in input = "" }
     }
 
     private var placeholder: String {

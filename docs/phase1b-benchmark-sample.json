@@ -1,0 +1,34 @@
+[
+  {
+    "cacheBytes" : 921600,
+    "cacheEntries" : 1,
+    "maxConcurrent" : 1,
+    "overviewStateMs" : 0.064015388488769531,
+    "queueCompletionMs" : 22.348999977111816,
+    "tabs" : 1
+  },
+  {
+    "cacheBytes" : 4608000,
+    "cacheEntries" : 5,
+    "maxConcurrent" : 2,
+    "overviewStateMs" : 0.015974044799804688,
+    "queueCompletionMs" : 54.606080055236816,
+    "tabs" : 5
+  },
+  {
+    "cacheBytes" : 9216000,
+    "cacheEntries" : 10,
+    "maxConcurrent" : 2,
+    "overviewStateMs" : 0.017046928405761719,
+    "queueCompletionMs" : 88.068008422851562,
+    "tabs" : 10
+  },
+  {
+    "cacheBytes" : 11059200,
+    "cacheEntries" : 12,
+    "maxConcurrent" : 2,
+    "overviewStateMs" : 0.02002716064453125,
+    "queueCompletionMs" : 164.71993923187256,
+    "tabs" : 20
+  }
+]

@@ -22,6 +22,8 @@ protocol BrowserSession: AnyObject {
     func reload()
     func stop()
     func focus()
+    func setHistorySwipe(enabled: Bool)
+    func snapshot(maxWidth: CGFloat) async -> NSImage?
     func close()
 }
 

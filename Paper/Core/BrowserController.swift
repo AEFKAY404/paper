@@ -1,3 +1,4 @@
+import AppKit
 import Combine
 import Foundation
 
@@ -10,6 +11,7 @@ struct BrowserTab: Identifiable {
     var canGoBack = false
     var canGoForward = false
     var error: String?
+    var previewRevision = 0
 }
 
 enum BrowserTabKind: String, Codable, Equatable {
@@ -98,6 +100,7 @@ final class BrowserController: ObservableObject {
             tabs[index].error = nil
             tabs[index].kind = .webpage
             tabs[index].url = url
+            tabs[index].previewRevision += 1
             save()
         }
         if activeSession == nil { newTab(url: url) }
@@ -108,6 +111,17 @@ final class BrowserController: ObservableObject {
     func goForward() { clearActiveError(); activeSession?.goForward() }
     func reload() { clearActiveError(); activeSession?.reload() }
     func stop() { activeSession?.stop() }
+
+    func setHistorySwipe(enabled: Bool) {
+        sessions.values.forEach { $0.setHistorySwipe(enabled: enabled) }
+    }
+
+    func snapshot(for id: UUID, maxWidth: CGFloat) async -> NSImage? {
+        guard let tab = tabs.first(where: { $0.id == id }),
+              tab.kind == .webpage, !tab.isLoading, tab.error == nil,
+              let session = sessions[id] else { return nil }
+        return await session.snapshot(maxWidth: maxWidth)
+    }
 
     func shutdown() {
         save()
@@ -132,6 +146,7 @@ final class BrowserController: ObservableObject {
         switch event {
         case .urlChanged(let url):
             if let url {
+                if tabs[index].url != url { tabs[index].previewRevision += 1 }
                 tabs[index].kind = .webpage
                 tabs[index].url = url
                 save()
@@ -141,8 +156,12 @@ final class BrowserController: ObservableObject {
         case .navigationChanged(let back, let forward):
             tabs[index].canGoBack = back
             tabs[index].canGoForward = forward
-        case .navigationFailed(let message): tabs[index].error = message
-        case .navigationSucceeded: tabs[index].error = nil
+        case .navigationFailed(let message):
+            tabs[index].error = message
+            tabs[index].previewRevision += 1
+        case .navigationSucceeded:
+            tabs[index].error = nil
+            tabs[index].previewRevision += 1
         case .openNewTab(let url): newTab(url: url)
         }
     }

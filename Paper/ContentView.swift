@@ -5,8 +5,12 @@ struct ContentView: View {
     @ObservedObject var ui: BrowserUIState
     @ObservedObject var onboarding: OnboardingState
     @StateObject private var inputMonitor = BrowserInputMonitor()
+    @StateObject private var previews = TabPreviewStore()
     @AppStorage("paper.restoreSession") private var restoreSession = true
     @AppStorage("paper.searchEngine") private var searchEngine = SearchEngine.google.rawValue
+    @AppStorage(InteractionPreferences.reduceMotionKey) private var reduceDecorativeMotion = false
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+    @Environment(\.openSettings) private var openSettings
 
     private var selectedSearchEngine: SearchEngine {
         SearchEngine(rawValue: searchEngine) ?? .google
@@ -19,35 +23,54 @@ struct ContentView: View {
             if let tab = browser.activeTab {
                 if tab.kind == .newTab {
                     NewTabView(tabID: tab.id, searchEngine: selectedSearchEngine,
-                               mayFocus: !ui.isPaletteVisible && onboarding.step != .search) { input in
+                               mayFocus: !ui.isPaletteVisible && !ui.isOverviewVisible && onboarding.step != .search) { input in
                         browser.navigate(input, searchEngine: selectedSearchEngine)
                     }
                     .id(tab.id)
+                    .accessibilityHidden(ui.isOverviewVisible || ui.isPaletteVisible)
                 } else if let session = browser.activeSession {
                     BrowserSurface(session: session)
                         .id(tab.id)
                         .ignoresSafeArea()
+                        .accessibilityHidden(ui.isOverviewVisible || ui.isPaletteVisible)
                 }
             }
 
+            if ui.isOverviewVisible {
+                TabOverviewView(browser: browser, ui: ui, previews: previews,
+                                activate: { id in perform(.switchTab(id)) },
+                                close: { id in
+                                    previews.removeTab(id)
+                                    browser.closeTab(id)
+                                    if ui.overviewSelectionID == id {
+                                        ui.overviewSelectionID = ui.filteredTabs(browser.tabs).first?.id
+                                    }
+                                },
+                                newTab: { perform(.newTab) },
+                                dismiss: { dismissOverview() })
+                    .zIndex(2)
+                    .transition(.opacity)
+            }
+
             if ui.isPaletteVisible {
-                CommandPalette(input: $ui.paletteInput, focusRequest: ui.focusRequest) {
-                    switch PaletteAction.resolve(ui.paletteInput) {
-                    case .handbook: ui.openHandbook()
-                    case .navigate(let input):
-                        browser.navigate(input, searchEngine: selectedSearchEngine)
-                        ui.dismissPalette()
-                        browser.activeSession?.focus()
-                    case .none: ui.dismissPalette()
-                    }
-                } dismiss: {
+                CommandPalette(input: $ui.paletteInput, focusRequest: ui.focusRequest,
+                               tabs: browser.tabs, perform: perform) {
                     ui.dismissPalette()
                     browser.activeSession?.focus()
-                } showHandbook: {
-                    ui.openHandbook()
                 }
-                .padding(.top, 32)
-                .zIndex(2)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                .offset(y: -60).zIndex(3)
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+
+            if let feedback = ui.feedbackText, !ui.isPaletteVisible && !ui.isOverviewVisible {
+                Text(feedback).font(.caption.weight(.medium))
+                    .padding(.horizontal, 12).padding(.vertical, 7)
+                    .background(.regularMaterial, in: Capsule())
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                    .padding(.bottom, 24).allowsHitTesting(false).zIndex(4)
+                    .accessibilityLabel(feedback)
+                    .transition(.opacity)
             }
 
             if let error = browser.activeTab?.error, !ui.isPaletteVisible {
@@ -75,6 +98,9 @@ struct ContentView: View {
             }
         }
         .frame(minWidth: 640, minHeight: 420)
+        .animation(PaperMotion.overlay(reduceMotion: systemReduceMotion || reduceDecorativeMotion), value: ui.isOverviewVisible)
+        .animation(PaperMotion.overlay(reduceMotion: systemReduceMotion || reduceDecorativeMotion), value: ui.isPaletteVisible)
+        .animation(PaperMotion.feedback(reduceMotion: systemReduceMotion || reduceDecorativeMotion), value: ui.feedbackText)
         .background(BrowserWindowAnchor { inputMonitor.browserWindow = $0 })
         .sheet(isPresented: $ui.isHandbookVisible) {
             HandbookView {
@@ -82,21 +108,40 @@ struct ContentView: View {
             }
         }
         .onAppear {
+            InteractionPreferences().migrateLegacyGestureSetting()
             browser.start(restorePreviousSession: restoreSession)
             onboarding.showIfNeeded()
             inputMonitor.start(browser: browser, ui: ui, onboarding: onboarding)
         }
+        .onChange(of: browser.activeTabID) { _, _ in
+            guard !ui.isPaletteVisible && !ui.isOverviewVisible else { return }
+            DispatchQueue.main.async { browser.activeSession?.focus() }
+        }
         .onDisappear { inputMonitor.stop() }
+    }
+
+    private func perform(_ action: PaletteAction) {
+        BrowserActionRouter.perform(action, browser: browser, ui: ui, onboarding: onboarding,
+                                    searchEngine: selectedSearchEngine, openSettings: { openSettings() })
+    }
+
+    private func dismissOverview() {
+        ui.dismissOverview()
+        ui.showFeedback("Closed tab overview")
+        DispatchQueue.main.async { browser.activeSession?.focus() }
     }
 }
 
 private struct CommandPalette: View {
     @Binding var input: String
     let focusRequest: Int
-    let submit: () -> Void
+    let tabs: [BrowserTab]
+    let perform: (PaletteAction) -> Void
     let dismiss: () -> Void
-    let showHandbook: () -> Void
     @FocusState private var focused: Bool
+    @State private var selection = 0
+
+    private var suggestions: [PaletteSuggestion] { PaletteSuggestion.matching(input, tabs: tabs) }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -108,25 +153,31 @@ private struct CommandPalette: View {
                     .font(.system(size: 16))
                     .focused($focused)
                     .onSubmit(submit)
+                    .onKeyPress(.upArrow) { move(-1); return .handled }
+                    .onKeyPress(.downArrow) { move(1); return .handled }
                     .accessibilityIdentifier("paper.commandPalette.input")
             }
             .padding(.horizontal, 16)
             .frame(height: 50)
-            if input.isEmpty || "help".contains(input.lowercased()) ||
-                "paper handbook".contains(input.lowercased()) {
+            if !suggestions.isEmpty {
                 Divider()
-                Button(action: showHandbook) {
-                    HStack {
-                        Image(systemName: "book.closed")
-                        Text("Paper Handbook")
-                        Spacer()
-                        Text("⌘?").foregroundStyle(.secondary)
+                ForEach(Array(suggestions.enumerated()), id: \.element.id) { index, suggestion in
+                    Button { perform(suggestion.action) } label: {
+                        HStack(spacing: 10) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(suggestion.title).font(.callout.weight(.medium))
+                                Text(suggestion.subtitle).font(.caption).foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Text(suggestion.shortcut).font(.caption).foregroundStyle(.secondary)
+                        }
+                        .padding(.horizontal, 16).frame(height: 44)
+                        .background(index == selection ? Color.accentColor.opacity(0.12) : .clear)
                     }
-                    .padding(.horizontal, 16)
-                    .frame(height: 44)
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(index == selection ? .isSelected : [])
+                    .accessibilityIdentifier(suggestion.action == .handbook ? "paper.commandPalette.handbook" : "paper.commandPalette.action.\(index)")
                 }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("paper.commandPalette.handbook")
             }
         }
         .frame(maxWidth: 620)
@@ -140,6 +191,27 @@ private struct CommandPalette: View {
             guard !Task.isCancelled else { return }
             focused = true
         }
+        .onChange(of: input) { _, _ in selection = 0 }
         .onExitCommand(perform: dismiss)
+    }
+
+    private func move(_ delta: Int) {
+        guard !suggestions.isEmpty else { return }
+        selection = (selection + delta + suggestions.count) % suggestions.count
+    }
+
+    private func submit() {
+        let value = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        if value.isEmpty, suggestions.indices.contains(selection) {
+            perform(suggestions[selection].action)
+        } else if PaletteAction.resolve(value) == .handbook {
+            perform(.handbook)
+        } else if value.contains(".") || value.contains("://") {
+            perform(.navigate(value))
+        } else if suggestions.indices.contains(selection) {
+            perform(suggestions[selection].action)
+        } else {
+            perform(PaletteAction.resolve(value))
+        }
     }
 }

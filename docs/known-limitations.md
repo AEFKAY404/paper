@@ -1,11 +1,13 @@
-# Known limitations — Phase 1A
+# Known limitations — Phase 1B
 
 - URL restoration reopens tabs and preserves their order and active index. It does not restore form state, per-tab back/forward history, scroll position, or in-memory JavaScript state after app relaunch.
 - Isolated-bundle XCTest UI scenarios now verify several native keyboard paths and new-tab focus. Webpage keyboard/mouse interaction and trackpad scrolling still need hands-on verification.
-- WebKit history swipes are enabled for new sessions by default. Changing the preference affects newly created sessions; existing sessions retain their setting until recreated. Option-swipe tab switching needs physical trackpad verification.
+- WebKit history swipes are enabled by default, and the preference now updates open sessions. Option-swipe tab switching remains opt-in and needs physical trackpad verification. App-local swipe events cannot prove behavior over every nested scroller, webpage drag target, Mission Control configuration, or fullscreen desktop gesture; use Control-Tab and Control-Shift-Tab if it conflicts.
+- Tab overview previews are static and may be stale until navigation completes or their five-minute freshness limit expires; viewport-only and script-only page changes do not invalidate them immediately. A never-visible, loading, failed, or unsnapshotable page shows a placeholder. Preview capture is bounded; it is not a live miniature web view.
+- `⌘⇧\` and overview search/dismissal passed synthetic UI automation. Physical keyboard and VoiceOver focus order still need hands-on checks.
 - Save Panel downloads are implemented but an end-to-end saved-file check remains. File-overwrite behavior and server-provided filenames need manual confirmation.
 - Popup requests with a URL open in a new tab. A script-created blank popup with no URL is not represented yet.
 - Browser state is shared within the SwiftUI `WindowGroup`; Phase 1A is designed for one browser window. Independent multi-window tab sets are out of scope.
 - The shell has no download progress, completed-download list, permission dashboard, or private mode. These are later-phase work.
-- The native new-tab view, introduction, and handbook have state/routing tests and isolated-bundle UI tests for focus, menu access, shortcuts, onboarding Skip, the full three-step flow, and handbook Replay. VoiceOver behavior still needs hands-on checking. Light and Debug-forced dark captures were inspected.
+- The native new-tab view, introduction, handbook, palette and tab overview have state/routing tests and isolated-bundle UI tests for selected focus, menu access, shortcuts, onboarding Skip, the full three-step flow, and handbook Replay. VoiceOver behavior still needs hands-on checking. Light and Debug-forced dark captures were inspected for Phase 1A; the Phase 1B overview capture was inspected in dark appearance. Light-appearance overview inspection remains pending.
 - A normal Debug build signs successfully with App Sandbox, network-client, and user-selected read/write entitlements. A release distribution build and notarization are not yet verified.
