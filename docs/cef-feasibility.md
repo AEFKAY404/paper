@@ -1,5 +1,7 @@
 # CEF feasibility and architectural decision
 
+> Superseded on 7 October 2026 by the [WebKit migration](engine-migration.md). This document preserves the earlier CEF investigation; its proposed integration path is no longer active.
+
 Status: architectural review approved; the approved principal-class approach then failed its runtime check. See [cef-lifecycle-blocker.md](cef-lifecycle-blocker.md).
 
 ## Existing project

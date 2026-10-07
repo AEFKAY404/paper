@@ -1,5 +1,7 @@
 # CEF lifecycle blocker: SwiftUI ignores the principal class
 
+> Superseded on 7 October 2026 by the [WebKit migration](engine-migration.md). This document preserves the observed CEF lifecycle findings; the proposed alternative is no longer planned.
+
 Date: 7 October 2026. Status: **CEF integration stopped before packaging or adapter work**.
 
 ## Reproduction in Paper

@@ -81,10 +81,31 @@ struct PaperTests {
         #expect(restored.activeTabID == restored.tabs[0].id)
     }
 
+    @Test func shutdownClosesSessionsButPreservesSnapshot() {
+        let (controller, engine, store) = makeController()
+        controller.start()
+        controller.navigate("example.com")
+        controller.newTab(url: URL(string: "https://swift.org"))
+        controller.shutdown()
+        let allClosed = engine.sessions.allSatisfy { $0.closed }
+        #expect(allClosed)
+        #expect(controller.tabs.isEmpty)
+        #expect(store.load()?.urls.compactMap { $0?.host } == ["example.com", "swift.org"])
+    }
+
     @Test func navigationInput() {
         #expect(NavigationInput.url(for: "https://example.com/a", searchEngine: .google)?.absoluteString == "https://example.com/a")
         #expect(NavigationInput.url(for: "example.com", searchEngine: .google)?.absoluteString == "https://example.com")
         #expect(NavigationInput.url(for: "paper browser", searchEngine: .google)?.absoluteString == "https://www.google.com/search?q=paper%20browser")
+        #expect(NavigationInput.url(for: "paper & browser", searchEngine: .google)?.query == "q=paper%20%26%20browser")
         #expect(NavigationInput.url(for: "  ", searchEngine: .google) == nil)
+    }
+
+    @Test func deliberateTabSwipeMapping() {
+        let gestures = GestureEngine()
+        #expect(gestures.actionForOptionSwipe(deltaX: -1, optionHeld: false) == nil)
+        #expect(gestures.actionForOptionSwipe(deltaX: -0.2, optionHeld: true) == nil)
+        #expect(gestures.actionForOptionSwipe(deltaX: -1, optionHeld: true) == .nextTab)
+        #expect(gestures.actionForOptionSwipe(deltaX: 1, optionHeld: true) == .previousTab)
     }
 }

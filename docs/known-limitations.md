@@ -1,7 +1,10 @@
-# Phase 1A status and limitations
+# Known limitations — Phase 1A
 
-Phase 1A is **incomplete**. Paper does not yet load sites, show a command palette, expose browser shortcuts or gestures, render multiple tabs, download files, show settings, or restore a browsing session in the launched UI. The engine-neutral controller and URL-only persistence are implemented and unit tested but are not connected to a CEF adapter.
-
-No Paper UI tests, site-navigation tests, signing tests, or performance benchmarks were run. No cold/warm launch, CPU, memory, navigation, or 1/5/10/20-tab figures are available. Do not infer browser performance from the CEF sample launch.
-
-CEF integration is stopped after the approved principal-class approach failed at runtime; see [cef-lifecycle-blocker.md](cef-lifecycle-blocker.md). The Xcode project structure, SwiftUI entry point, test targets, bundle identifier, deployment target, and signing settings remain untouched.
+- URL restoration reopens tabs and preserves their order and active index. It does not restore form state, per-tab back/forward history, scroll position, or in-memory JavaScript state after app relaunch.
+- The command palette and shortcuts have an XCTest UI scenario, but automated UI execution is unreliable on this host; the outcome is recorded in [performance-benchmarks.md](performance-benchmarks.md). Webpage keyboard/mouse interaction and trackpad scrolling still need hands-on verification.
+- WebKit history swipes are enabled for new sessions by default. Changing the preference affects newly created sessions; existing sessions retain their setting until recreated. Option-swipe tab switching needs physical trackpad verification.
+- Save Panel downloads are implemented but an end-to-end saved-file check remains. File-overwrite behavior and server-provided filenames need manual confirmation.
+- Popup requests with a URL open in a new tab. A script-created blank popup with no URL is not represented yet.
+- Browser state is shared within the SwiftUI `WindowGroup`; Phase 1A is designed for one browser window. Independent multi-window tab sets are out of scope.
+- The shell has no download progress, completed-download list, permission dashboard, or private mode. These are later-phase work.
+- A normal Debug build signs successfully with App Sandbox, network-client, and user-selected read/write entitlements. A release distribution build and notarization are not yet verified.

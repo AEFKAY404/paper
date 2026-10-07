@@ -8,6 +8,7 @@ enum BrowserEvent {
     case loadingChanged(Bool)
     case navigationChanged(canGoBack: Bool, canGoForward: Bool)
     case navigationFailed(String)
+    case navigationSucceeded
     case openNewTab(URL)
 }
 

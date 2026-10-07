@@ -31,7 +31,8 @@ enum NavigationInput {
         if !value.contains(where: \.isWhitespace),
            (value.contains(".") || value.lowercased() == "localhost"),
            let url = URL(string: "https://" + value), url.host != nil { return url }
-        let query = value.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? value
-        return URL(string: searchEngine.searchBase + query)
+        guard var components = URLComponents(string: searchEngine.searchBase) else { return nil }
+        components.queryItems = [URLQueryItem(name: "q", value: value)]
+        return components.url
     }
 }

@@ -28,14 +28,14 @@ final class BrowserController: ObservableObject {
     var activeTab: BrowserTab? { tabs.first { $0.id == activeTabID } }
     var activeSession: (any BrowserSession)? { activeTabID.flatMap { sessions[$0] } }
 
-    func start(restorePreviousSession: Bool = true) {
+    func start(restorePreviousSession: Bool = true, initialURL: URL? = nil) {
         guard tabs.isEmpty else { return }
         if restorePreviousSession, let saved = store.load(), !saved.urls.isEmpty {
             for url in saved.urls { newTab(url: url, activate: false) }
             let index = min(max(saved.activeIndex, 0), tabs.count - 1)
             activate(tabs[index].id)
         } else {
-            newTab()
+            newTab(url: initialURL)
         }
     }
 
@@ -85,14 +85,27 @@ final class BrowserController: ObservableObject {
 
     func navigate(_ input: String, searchEngine: SearchEngine = .duckDuckGo) {
         guard let url = NavigationInput.url(for: input, searchEngine: searchEngine) else { return }
+        if let index = tabs.firstIndex(where: { $0.id == activeTabID }) {
+            tabs[index].error = nil
+            tabs[index].url = url
+            save()
+        }
         if activeSession == nil { newTab(url: url) }
         else { activeSession?.load(url) }
     }
 
-    func goBack() { activeSession?.goBack() }
-    func goForward() { activeSession?.goForward() }
-    func reload() { activeSession?.reload() }
+    func goBack() { clearActiveError(); activeSession?.goBack() }
+    func goForward() { clearActiveError(); activeSession?.goForward() }
+    func reload() { clearActiveError(); activeSession?.reload() }
     func stop() { activeSession?.stop() }
+
+    func shutdown() {
+        save()
+        sessions.values.forEach { $0.close() }
+        sessions.removeAll()
+        tabs.removeAll()
+        activeTabID = nil
+    }
 
     func save() {
         let urls = tabs.map { $0.url }
@@ -100,18 +113,25 @@ final class BrowserController: ObservableObject {
         store.save(SavedSession(urls: urls, activeIndex: index))
     }
 
+    private func clearActiveError() {
+        if let index = tabs.firstIndex(where: { $0.id == activeTabID }) { tabs[index].error = nil }
+    }
+
     private func apply(_ event: BrowserEvent, to id: UUID) {
         guard let index = tabs.firstIndex(where: { $0.id == id }) else { return }
         switch event {
         case .urlChanged(let url):
-            tabs[index].url = url
-            save()
+            if let url {
+                tabs[index].url = url
+                save()
+            }
         case .titleChanged(let title): tabs[index].title = title
         case .loadingChanged(let loading): tabs[index].isLoading = loading
         case .navigationChanged(let back, let forward):
             tabs[index].canGoBack = back
             tabs[index].canGoForward = forward
         case .navigationFailed(let message): tabs[index].error = message
+        case .navigationSucceeded: tabs[index].error = nil
         case .openNewTab(let url): newTab(url: url)
         }
     }
