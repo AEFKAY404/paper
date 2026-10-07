@@ -1,6 +1,6 @@
 # CEF feasibility and architectural decision
 
-Status: **review required before CEF integration** (7 October 2026).
+Status: architectural review approved; the approved principal-class approach then failed its runtime check. See [cef-lifecycle-blocker.md](cef-lifecycle-blocker.md).
 
 ## Existing project
 
@@ -30,4 +30,4 @@ The [CEF general usage guide](https://chromiumembedded.github.io/cef/general_usa
 
 ## Current decision
 
-The project brief requires stopping when a substantial architectural change is needed. CEF has **not** been integrated into Paper, and no fallback engine was substituted. The project remains a building native template with an engine-neutral core and tests. Integration should resume after review of the principal-class and helper-packaging approach above.
+The principal-class change was attempted after approval. SwiftUI instantiated `SwiftUI.AppKitApplication` despite the generated Info.plist naming `PaperApplication`. The failed change was reverted and CEF has **not** been integrated into Paper. See the runtime evidence and minimal proposed alternative in [cef-lifecycle-blocker.md](cef-lifecycle-blocker.md).

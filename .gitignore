@@ -17,6 +17,7 @@ build/
 *.tar.bz2
 *.zip
 *.log
+*.profraw
 Vendor/CEF/
 Paper.xcodeproj/xcuserdata/
 Paper.xcodeproj/project.xcworkspace/xcuserdata/
