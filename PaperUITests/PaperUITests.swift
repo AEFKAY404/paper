@@ -24,13 +24,12 @@ final class PaperUITests: XCTestCase {
 
     @MainActor
     func testExample() throws {
-        // UI tests must launch the application that they test.
         let app = XCUIApplication()
         app.launch()
-
-        // Use XCTAssert and related functions to verify your tests produce the correct results.
-        // XCUIAutomation Documentation
-        // https://developer.apple.com/documentation/xcuiautomation
+        XCTAssertTrue(app.windows["Paper"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.menuBars.menuBarItems["Paper"].exists)
+        XCTAssertTrue(app.menuBars.menuBarItems["File"].exists)
+        XCTAssertTrue(app.menuBars.menuBarItems["View"].exists)
     }
 
     @MainActor
