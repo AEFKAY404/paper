@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct PaperSettingsView: View {
-    @AppStorage("paper.searchEngine") private var searchEngine = SearchEngine.duckDuckGo.rawValue
+    @AppStorage("paper.searchEngine") private var searchEngine = SearchEngine.google.rawValue
     @AppStorage("paper.restoreSession") private var restoreSession = true
     @AppStorage("paper.historyGestures") private var historyGestures = true
     @AppStorage("paper.tabSwipe") private var tabSwipe = false

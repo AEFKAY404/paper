@@ -108,4 +108,62 @@ struct PaperTests {
         #expect(gestures.actionForOptionSwipe(deltaX: -1, optionHeld: true) == .nextTab)
         #expect(gestures.actionForOptionSwipe(deltaX: 1, optionHeld: true) == .previousTab)
     }
+
+    @Test func newTabIsNativeStateAndGoogleIsDefault() {
+        let (controller, engine, store) = makeController()
+        controller.start(restorePreviousSession: false)
+        #expect(controller.activeTab?.kind == .newTab)
+        #expect(controller.activeTab?.url == nil)
+        #expect(engine.sessions[0].loadedURLs.isEmpty)
+        #expect(store.load()?.kinds == [.newTab])
+        controller.navigate("paper & browser")
+        #expect(controller.activeTab?.kind == .webpage)
+        #expect(engine.sessions[0].loadedURLs.last?.host == "www.google.com")
+        #expect(engine.sessions[0].loadedURLs.last?.query == "q=paper%20%26%20browser")
+    }
+
+    @Test func legacySessionMigratesExplicitTabKinds() throws {
+        let oldJSON = Data(#"{"urls":[null,"https://example.com"],"activeIndex":1}"#.utf8)
+        let session = try JSONDecoder().decode(SavedSession.self, from: oldJSON)
+        #expect(session.kinds == [.newTab, .webpage])
+        let encoded = try JSONEncoder().encode(session)
+        #expect(String(decoding: encoded, as: UTF8.self).contains("kinds"))
+    }
+
+    @Test func onboardingPersistenceAndPractice() {
+        let defaults = UserDefaults(suiteName: UUID().uuidString)!
+        let state = OnboardingState(defaults: defaults)
+        state.showIfNeeded()
+        #expect(state.step == .navigate)
+        state.locationOpened()
+        state.continueFromLocation()
+        #expect(state.step == .search)
+        state.submitPractice("example.com")
+        #expect(state.step == .tabs)
+        state.record(.newTab)
+        state.record(.nextTab)
+        state.record(.closeTab)
+        #expect(state.tabActions.count == 3)
+        state.complete()
+        #expect(state.step == nil)
+        let nextLaunch = OnboardingState(defaults: defaults)
+        nextLaunch.showIfNeeded()
+        #expect(nextLaunch.step == nil)
+        nextLaunch.reopen()
+        #expect(nextLaunch.step == .navigate)
+        nextLaunch.skip()
+        #expect(nextLaunch.step == nil)
+    }
+
+    @Test func handbookPaletteRouting() {
+        #expect(PaletteAction.resolve("Help") == .handbook)
+        #expect(PaletteAction.resolve("paper handbook") == .handbook)
+        #expect(PaletteAction.resolve("example.com") == .navigate("example.com"))
+        #expect(PaletteAction.resolve(" ") == .none)
+        let ui = BrowserUIState()
+        ui.openPalette()
+        ui.openHandbook()
+        #expect(ui.isHandbookVisible)
+        #expect(!ui.isPaletteVisible)
+    }
 }

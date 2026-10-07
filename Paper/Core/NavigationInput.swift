@@ -1,8 +1,8 @@
 import Foundation
 
 enum SearchEngine: String, CaseIterable, Identifiable {
-    case duckDuckGo
     case google
+    case duckDuckGo
     case brave
 
     var id: String { rawValue }

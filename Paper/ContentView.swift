@@ -3,43 +3,51 @@ import SwiftUI
 struct ContentView: View {
     @ObservedObject var browser: BrowserController
     @ObservedObject var ui: BrowserUIState
+    @ObservedObject var onboarding: OnboardingState
     @StateObject private var inputMonitor = BrowserInputMonitor()
     @AppStorage("paper.restoreSession") private var restoreSession = true
-    @AppStorage("paper.searchEngine") private var searchEngine = SearchEngine.duckDuckGo.rawValue
+    @AppStorage("paper.searchEngine") private var searchEngine = SearchEngine.google.rawValue
+
+    private var selectedSearchEngine: SearchEngine {
+        SearchEngine(rawValue: searchEngine) ?? .google
+    }
 
     var body: some View {
         ZStack(alignment: .top) {
             Color(nsColor: .windowBackgroundColor)
 
-            if let session = browser.activeSession, let id = browser.activeTabID {
-                BrowserSurface(session: session)
-                    .id(id)
-                    .ignoresSafeArea()
-            }
-
-            if browser.activeTab?.url == nil {
-                VStack(spacing: 12) {
-                    Text("Paper")
-                        .font(.system(size: 42, weight: .light, design: .serif))
-                    Text("Press ⌘L to open a page")
-                        .foregroundStyle(.secondary)
+            if let tab = browser.activeTab {
+                if tab.kind == .newTab {
+                    NewTabView(tabID: tab.id, searchEngine: selectedSearchEngine,
+                               mayFocus: !ui.isPaletteVisible && onboarding.step != .search) { input in
+                        browser.navigate(input, searchEngine: selectedSearchEngine)
+                    }
+                    .id(tab.id)
+                } else if let session = browser.activeSession {
+                    BrowserSurface(session: session)
+                        .id(tab.id)
+                        .ignoresSafeArea()
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .allowsHitTesting(false)
             }
 
             if ui.isPaletteVisible {
                 CommandPalette(input: $ui.paletteInput, focusRequest: ui.focusRequest) {
-                    let selected = SearchEngine(rawValue: searchEngine) ?? .duckDuckGo
-                    browser.navigate(ui.paletteInput, searchEngine: selected)
-                    ui.dismissPalette()
-                    browser.activeSession?.focus()
+                    switch PaletteAction.resolve(ui.paletteInput) {
+                    case .handbook: ui.openHandbook()
+                    case .navigate(let input):
+                        browser.navigate(input, searchEngine: selectedSearchEngine)
+                        ui.dismissPalette()
+                        browser.activeSession?.focus()
+                    case .none: ui.dismissPalette()
+                    }
                 } dismiss: {
                     ui.dismissPalette()
                     browser.activeSession?.focus()
+                } showHandbook: {
+                    ui.openHandbook()
                 }
                 .padding(.top, 32)
-                .zIndex(1)
+                .zIndex(2)
             }
 
             if let error = browser.activeTab?.error, !ui.isPaletteVisible {
@@ -52,12 +60,31 @@ struct ContentView: View {
                 .padding(12)
                 .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
                 .padding(.top, 20)
+                .zIndex(1)
+            }
+
+            if onboarding.step != nil {
+                OnboardingView(state: onboarding, dismissPalette: { ui.dismissPalette() },
+                               newTab: { browser.newTab() },
+                               nextTab: { browser.selectAdjacentTab(offset: 1) },
+                               closeTab: { browser.closeActiveTab() })
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                    .padding(.top, 94)
+                    .padding(.trailing, 24)
+                    .zIndex(3)
             }
         }
         .frame(minWidth: 640, minHeight: 420)
+        .background(BrowserWindowAnchor { inputMonitor.browserWindow = $0 })
+        .sheet(isPresented: $ui.isHandbookVisible) {
+            HandbookView {
+                onboarding.reopen()
+            }
+        }
         .onAppear {
-            browser.start(restorePreviousSession: restoreSession, initialURL: URL(string: "https://example.com"))
-            inputMonitor.start(browser: browser, ui: ui)
+            browser.start(restorePreviousSession: restoreSession)
+            onboarding.showIfNeeded()
+            inputMonitor.start(browser: browser, ui: ui, onboarding: onboarding)
         }
         .onDisappear { inputMonitor.stop() }
     }
@@ -68,28 +95,51 @@ private struct CommandPalette: View {
     let focusRequest: Int
     let submit: () -> Void
     let dismiss: () -> Void
+    let showHandbook: () -> Void
     @FocusState private var focused: Bool
 
     var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "magnifyingglass")
-                .foregroundStyle(.secondary)
-            TextField("Search or enter website", text: $input)
-                .textFieldStyle(.plain)
-                .font(.system(size: 16))
-                .focused($focused)
-                .onSubmit(submit)
-                .accessibilityIdentifier("paper.commandPalette.input")
+        VStack(spacing: 0) {
+            HStack(spacing: 10) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundStyle(.secondary)
+                TextField("Search or enter website", text: $input)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 16))
+                    .focused($focused)
+                    .onSubmit(submit)
+                    .accessibilityIdentifier("paper.commandPalette.input")
+            }
+            .padding(.horizontal, 16)
+            .frame(height: 50)
+            if input.isEmpty || "help".contains(input.lowercased()) ||
+                "paper handbook".contains(input.lowercased()) {
+                Divider()
+                Button(action: showHandbook) {
+                    HStack {
+                        Image(systemName: "book.closed")
+                        Text("Paper Handbook")
+                        Spacer()
+                        Text("⌘?").foregroundStyle(.secondary)
+                    }
+                    .padding(.horizontal, 16)
+                    .frame(height: 44)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("paper.commandPalette.handbook")
+            }
         }
-        .padding(.horizontal, 16)
-        .frame(height: 50)
         .frame(maxWidth: 620)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 13))
         .overlay(RoundedRectangle(cornerRadius: 13).strokeBorder(.quaternary))
         .shadow(color: .black.opacity(0.18), radius: 20, y: 9)
         .padding(.horizontal, 24)
-        .onAppear { focused = true }
-        .onChange(of: focusRequest) { _, _ in focused = true }
+        .task(id: focusRequest) {
+            focused = false
+            try? await Task.sleep(for: .milliseconds(30))
+            guard !Task.isCancelled else { return }
+            focused = true
+        }
         .onExitCommand(perform: dismiss)
     }
 }

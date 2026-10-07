@@ -11,8 +11,10 @@ Host: Apple Silicon Mac, macOS 27.2, Xcode 27 beta, Debug build, 7 October 2026.
 | Idle CPU and memory | Not measured reproducibly | A single brief process snapshot would be misleading. |
 | 1, 5, 10, 20 tab performance | Not measured | No repeatable interaction harness or stable workload yet. |
 | Physical keyboard, mouse, trackpad | Pending | macOS assistive access was denied to System Events in this environment. |
-| UI XCTest | Not completed | `PaperUITests` scenario was compiled, but Xcode's runner stalled for 136 seconds while waiting for a worker to materialize; the run was interrupted without any test case starting. |
+| UI XCTest | Passed for new-tab/handbook work | An isolated bundle identifier avoids existing `ark.Paper` processes. UI cases verify native search focus, ⌘T/⌘W, ⌘L, ⌘?, the full introduction, handbook Replay, Help menu, and light/dark appearance. The original-bundle run attached to a windowless second process. |
 | Signed Debug build | Passed | Normal `xcodebuild build`; `codesign` showed App Sandbox, network-client, and user-selected read/write entitlements. |
 | End-to-end saved download | Pending | Save Panel requires controlled interaction and file verification. |
 
 The adapter retains one web view per tab; the tab-switch integration test confirms the same view and JavaScript state are present after switching. This supports the ownership design but is not a latency measurement.
+
+The native new-tab, onboarding, and handbook change added four focused tests (14 passing total) and isolated-bundle UI tests. They do not provide new performance measurements or replace physical trackpad and download verification.

@@ -6,6 +6,7 @@ final class BrowserUIState: ObservableObject {
     @Published var isPaletteVisible = false
     @Published var paletteInput = ""
     @Published private(set) var focusRequest = 0
+    @Published var isHandbookVisible = false
 
     func openPalette(prefill: String = "") {
         paletteInput = prefill
@@ -15,5 +16,10 @@ final class BrowserUIState: ObservableObject {
 
     func dismissPalette() {
         isPaletteVisible = false
+    }
+
+    func openHandbook() {
+        dismissPalette()
+        isHandbookVisible = true
     }
 }

@@ -3,12 +3,18 @@ import Foundation
 
 struct BrowserTab: Identifiable {
     let id: UUID
+    var kind: BrowserTabKind
     var url: URL?
     var title: String
     var isLoading = false
     var canGoBack = false
     var canGoForward = false
     var error: String?
+}
+
+enum BrowserTabKind: String, Codable, Equatable {
+    case newTab
+    case webpage
 }
 
 @MainActor
@@ -31,7 +37,10 @@ final class BrowserController: ObservableObject {
     func start(restorePreviousSession: Bool = true, initialURL: URL? = nil) {
         guard tabs.isEmpty else { return }
         if restorePreviousSession, let saved = store.load(), !saved.urls.isEmpty {
-            for url in saved.urls { newTab(url: url, activate: false) }
+            for (offset, url) in saved.urls.enumerated() {
+                let id = newTab(url: url, activate: false)
+                if tabs[offset].id == id { tabs[offset].kind = saved.kinds[offset] }
+            }
             let index = min(max(saved.activeIndex, 0), tabs.count - 1)
             activate(tabs[index].id)
         } else {
@@ -43,7 +52,7 @@ final class BrowserController: ObservableObject {
     func newTab(url: URL? = nil, activate shouldActivate: Bool = true) -> UUID {
         let id = UUID()
         let session = engine.makeSession()
-        let tab = BrowserTab(id: id, url: url, title: "New Tab")
+        let tab = BrowserTab(id: id, kind: url == nil ? .newTab : .webpage, url: url, title: "New Tab")
         session.onEvent = { [weak self] event in self?.apply(event, to: id) }
         sessions[id] = session
         tabs.append(tab)
@@ -83,10 +92,11 @@ final class BrowserController: ObservableObject {
         activate(tabs[(index + offset + tabs.count) % tabs.count].id)
     }
 
-    func navigate(_ input: String, searchEngine: SearchEngine = .duckDuckGo) {
+    func navigate(_ input: String, searchEngine: SearchEngine = .google) {
         guard let url = NavigationInput.url(for: input, searchEngine: searchEngine) else { return }
         if let index = tabs.firstIndex(where: { $0.id == activeTabID }) {
             tabs[index].error = nil
+            tabs[index].kind = .webpage
             tabs[index].url = url
             save()
         }
@@ -110,7 +120,7 @@ final class BrowserController: ObservableObject {
     func save() {
         let urls = tabs.map { $0.url }
         let index = tabs.firstIndex { $0.id == activeTabID } ?? 0
-        store.save(SavedSession(urls: urls, activeIndex: index))
+        store.save(SavedSession(urls: urls, activeIndex: index, kinds: tabs.map(\.kind)))
     }
 
     private func clearActiveError() {
@@ -122,6 +132,7 @@ final class BrowserController: ObservableObject {
         switch event {
         case .urlChanged(let url):
             if let url {
+                tabs[index].kind = .webpage
                 tabs[index].url = url
                 save()
             }

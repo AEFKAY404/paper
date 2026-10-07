@@ -4,7 +4,9 @@
 
 Implemented: SwiftUI shell; WebKit session per tab; command palette; keyboard tab and navigation commands; URL/search parsing; back/forward/reload/stop; popup links in new tabs; save-panel download flow; history swipe support; optional Option-swipe tab switching; URL and active-tab restoration; engine-neutral core and WebKit tests.
 
-Verification still needed on a physical trackpad and through reliable macOS UI automation: webpage mouse/keyboard interaction, all shortcuts, gesture behavior, download save completion, and quit/relaunch in the visible app. Performance coverage is partial. These are listed in [known-limitations.md](known-limitations.md); Phase 1A is not declared fully complete while they remain.
+The native new-tab search view, optional introduction, and built-in handbook are implemented. Google is the default search provider. See [new-tab-and-handbook.md](new-tab-and-handbook.md).
+
+Isolated-bundle macOS UI automation now covers the new-tab search focus, selected tab/help shortcuts, the full introduction, handbook Replay, and Help-menu access. Verification still needed: physical trackpad behavior, webpage mouse/keyboard interaction, untested shortcuts, download save completion, and quit/relaunch in the visible app. Performance coverage is partial. These are listed in [known-limitations.md](known-limitations.md); Phase 1A is not declared fully complete while they remain.
 
 ## Later phases
 
