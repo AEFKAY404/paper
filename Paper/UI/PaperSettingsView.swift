@@ -35,7 +35,7 @@ struct PaperSettingsView: View {
             }
             Text("Option-swipe tab switching is experimental and off until custom gestures are enabled. Native WebKit history swipes remain available independently.")
                 .font(.footnote)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(PaperTypography.readingColor)
         }
         .formStyle(.grouped)
         .frame(width: 500, height: 420)

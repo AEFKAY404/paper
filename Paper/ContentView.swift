@@ -64,7 +64,7 @@ struct ContentView: View {
             }
 
             if let feedback = ui.feedbackText, !ui.isPaletteVisible && !ui.isOverviewVisible {
-                Text(feedback).font(.caption.weight(.medium))
+                Text(feedback).font(PaperTypography.metadata)
                     .padding(.horizontal, 12).padding(.vertical, 7)
                     .background(.regularMaterial, in: Capsule())
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
@@ -148,9 +148,11 @@ private struct CommandPalette: View {
             HStack(spacing: 10) {
                 Image(systemName: "magnifyingglass")
                     .foregroundStyle(.secondary)
-                TextField("Search or enter website", text: $input)
+                TextField("", text: $input, prompt: Text("Search or enter website")
+                    .font(PaperTypography.commandInput)
+                    .foregroundStyle(PaperTypography.placeholderColor))
                     .textFieldStyle(.plain)
-                    .font(.system(size: 16))
+                    .font(PaperTypography.commandInput)
                     .focused($focused)
                     .onSubmit(submit)
                     .onKeyPress(.upArrow) { move(-1); return .handled }
@@ -165,11 +167,13 @@ private struct CommandPalette: View {
                     Button { perform(suggestion.action) } label: {
                         HStack(spacing: 10) {
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(suggestion.title).font(.callout.weight(.medium))
-                                Text(suggestion.subtitle).font(.caption).foregroundStyle(.secondary)
+                                Text(suggestion.title).font(PaperTypography.commandTitle)
+                                Text(suggestion.subtitle).font(PaperTypography.metadata)
+                                    .foregroundStyle(PaperTypography.readingColor)
                             }
                             Spacer()
-                            Text(suggestion.shortcut).font(.caption).foregroundStyle(.secondary)
+                            Text(suggestion.shortcut).font(PaperTypography.metadata)
+                                .foregroundStyle(PaperTypography.shortcutColor)
                         }
                         .padding(.horizontal, 16).frame(height: 44)
                         .background(index == selection ? Color.accentColor.opacity(0.12) : .clear)

@@ -13,16 +13,16 @@ struct OnboardingView: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .firstTextBaseline) {
                 Text("A little room to explore")
-                    .font(.system(size: 21, weight: .regular, design: .serif))
+                    .font(PaperTypography.onboardingHeading)
                 Spacer()
                 Button("Skip") { state.skip(); dismissPalette() }
                     .buttonStyle(.plain)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.primary)
                     .accessibilityLabel("Skip introduction")
             }
             if let step = state.step {
                 Text("\(step.rawValue + 1) OF 3")
-                    .font(.caption.weight(.semibold))
+                    .font(PaperTypography.eyebrow)
                     .tracking(1.5)
                     .foregroundStyle(.secondary)
             }
@@ -60,7 +60,7 @@ struct OnboardingView: View {
                 EmptyView()
             }
         }
-        .font(.callout)
+        .font(PaperTypography.supporting)
         .padding(22)
         .frame(width: 350, alignment: .leading)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18))
@@ -81,7 +81,7 @@ struct OnboardingView: View {
                 Image(systemName: state.tabActions.contains(action) ? "checkmark.circle.fill" : "circle")
                 Text(title)
                 Spacer()
-                Text(shortcut).font(.system(.callout, design: .monospaced))
+                Text(shortcut).font(PaperTypography.shortcut)
             }
             .contentShape(Rectangle())
         }

@@ -15,7 +15,7 @@ struct TabOverviewView: View {
     var body: some View {
         VStack(spacing: 20) {
             HStack {
-                Text("Tabs").font(.system(size: 30, weight: .light, design: .serif))
+                Text("Tabs").font(PaperTypography.overviewHeading)
                 Spacer()
                 Button(action: newTab) { Label("New Tab", systemImage: "plus") }
                     .accessibilityIdentifier("paper.overview.newTab")
@@ -23,8 +23,11 @@ struct TabOverviewView: View {
             }
             HStack(spacing: 10) {
                 Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                TextField("Find a tab", text: $ui.overviewQuery)
+                TextField("", text: $ui.overviewQuery, prompt: Text("Find a tab")
+                    .font(PaperTypography.searchInput)
+                    .foregroundStyle(PaperTypography.placeholderColor))
                     .textFieldStyle(.plain)
+                    .font(PaperTypography.searchInput)
                     .focused($searchFocused)
                     .accessibilityIdentifier("paper.overview.search")
             }
@@ -46,7 +49,9 @@ struct TabOverviewView: View {
                 }
             }
             if matchingTabs.isEmpty {
-                Text("No matching tabs").foregroundStyle(.secondary)
+                Text("No matching tabs")
+                    .font(PaperTypography.supporting)
+                    .foregroundStyle(.secondary)
             }
         }
         .padding(28)
@@ -97,8 +102,9 @@ struct TabOverviewView: View {
                     RoundedRectangle(cornerRadius: 11).fill(Color(nsColor: .controlBackgroundColor))
                     if tab.kind == .newTab {
                         VStack(spacing: 4) {
-                            Text("Paper").font(.system(size: 28, weight: .light, design: .serif))
-                            Text("The web, without the browser.").font(.caption).foregroundStyle(.secondary)
+                            Text("Paper").font(PaperTypography.cardBrand)
+                            Text("The web, without the browser.")
+                                .font(PaperTypography.metadata).foregroundStyle(.secondary)
                         }
                     } else if let image = previews.previews[tab.id] {
                         Image(nsImage: image).resizable().scaledToFill()
@@ -120,9 +126,10 @@ struct TabOverviewView: View {
 
             HStack(spacing: 8) {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(tab.title).lineLimit(1).font(.callout.weight(.medium))
+                    Text(tab.title).lineLimit(1).font(PaperTypography.tabTitle)
                     Text(tab.url?.host ?? (tab.kind == .newTab ? "Paper" : tab.url?.absoluteString ?? "Unavailable"))
-                        .lineLimit(1).font(.caption).foregroundStyle(.secondary)
+                        .lineLimit(1).font(PaperTypography.metadata)
+                        .foregroundStyle(PaperTypography.readingColor)
                 }
                 Spacer(minLength: 0)
                 if tab.isLoading { ProgressView().controlSize(.small).accessibilityLabel("Loading") }
@@ -138,7 +145,7 @@ struct TabOverviewView: View {
                           lineWidth: tab.id == ui.overviewSelectionID ? 2 : 1))
         .overlay(alignment: .topLeading) {
             if tab.id == browser.activeTabID {
-                Text("Current").font(.caption2.weight(.semibold)).padding(5)
+                Text("Current").font(PaperTypography.status).padding(5)
                     .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 5)).padding(7)
             }
         }

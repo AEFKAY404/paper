@@ -9,14 +9,14 @@ struct HandbookView: View {
             VStack(alignment: .leading, spacing: 34) {
                 VStack(alignment: .leading, spacing: 12) {
                     Text("PAPER / FIELD GUIDE")
-                        .font(.caption.weight(.semibold))
+                        .font(PaperTypography.eyebrow)
                         .tracking(2)
                         .foregroundStyle(.secondary)
                     Text("The web, without the browser.")
-                        .font(.system(size: 44, weight: .light, design: .serif))
+                        .font(PaperTypography.hero)
                         .fixedSize(horizontal: false, vertical: true)
                     Text("A quiet guide to moving through Paper.")
-                        .font(.title3)
+                        .font(PaperTypography.annotation)
                         .foregroundStyle(.secondary)
                 }
                 section("Getting Started", "Paper keeps the webpage in view. Open the command palette for addresses, search, tabs and browser actions.", shortcuts: [("Open command palette", "⌘L")])
@@ -46,22 +46,23 @@ struct HandbookView: View {
     private func section(_ title: String, _ body: String, shortcuts: [(String, String)]) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(title)
-                .font(.system(size: 26, weight: .regular, design: .serif))
+                .font(PaperTypography.sectionHeading)
             Text(body)
-                .foregroundStyle(.secondary)
+                .font(PaperTypography.body)
+                .foregroundStyle(PaperTypography.readingColor)
                 .fixedSize(horizontal: false, vertical: true)
             ForEach(shortcuts, id: \.0) { item in
                 HStack {
                     Text(item.0)
                     Spacer()
                     Text(item.1)
-                        .font(.system(.callout, design: .monospaced))
+                        .font(PaperTypography.shortcut)
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 9)
                         .padding(.vertical, 5)
                         .background(.quaternary, in: RoundedRectangle(cornerRadius: 6))
                 }
-                .font(.callout)
+                .font(PaperTypography.supporting)
                 .frame(maxWidth: 420)
             }
         }

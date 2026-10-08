@@ -1,0 +1,30 @@
+import SwiftUI
+
+/// A small native type scale. Thin weights are reserved for display sizes;
+/// functional and long-form text keeps a readable regular or medium weight.
+enum PaperTypography {
+    static let placeholderColor: Color = .primary.opacity(0.68)
+    static let readingColor: Color = .primary.opacity(0.8)
+    static let shortcutColor: Color = .primary.opacity(0.72)
+
+    static let brand: Font = .system(size: 58, weight: .thin)
+    static let hero: Font = .system(size: 44, weight: .thin)
+    static let overviewHeading: Font = .system(size: 30, weight: .thin)
+    static let sectionHeading: Font = .system(size: 26, weight: .light)
+    static let onboardingHeading: Font = .system(size: 24, weight: .thin)
+    static let cardBrand: Font = .system(size: 28, weight: .thin)
+
+    static let newTabInput: Font = .system(size: 17, weight: .light)
+    static let commandInput: Font = .system(size: 16, weight: .light)
+    static let searchInput: Font = .body.weight(.light)
+    static let commandTitle: Font = .callout.weight(.light)
+    static let tabTitle: Font = .callout.weight(.light)
+
+    static let body: Font = .body.weight(.regular)
+    static let supporting: Font = .callout.weight(.regular)
+    static let annotation: Font = .callout.weight(.light)
+    static let metadata: Font = .caption.weight(.regular)
+    static let eyebrow: Font = .caption.weight(.medium)
+    static let status: Font = .caption2.weight(.medium)
+    static let shortcut: Font = .system(.callout, design: .monospaced, weight: .regular)
+}

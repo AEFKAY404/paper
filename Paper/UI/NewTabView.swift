@@ -12,10 +12,10 @@ struct NewTabView: View {
         VStack(spacing: 28) {
             VStack(spacing: 6) {
                 Text("Paper")
-                    .font(.system(size: 58, weight: .light, design: .serif))
+                    .font(PaperTypography.brand)
                     .tracking(-2)
                 Text("The web, without the browser.")
-                    .font(.callout)
+                    .font(PaperTypography.supporting)
                     .foregroundStyle(.secondary)
             }
             .accessibilityElement(children: .combine)
@@ -23,9 +23,11 @@ struct NewTabView: View {
             HStack(spacing: 14) {
                 Image(systemName: "magnifyingglass")
                     .foregroundStyle(.secondary)
-                TextField(placeholder, text: $input)
+                TextField("", text: $input, prompt: Text(placeholder)
+                    .font(PaperTypography.newTabInput)
+                    .foregroundStyle(PaperTypography.placeholderColor))
                     .textFieldStyle(.plain)
-                    .font(.system(size: 17))
+                    .font(PaperTypography.newTabInput)
                     .focused($focused)
                     .onSubmit { submitInput() }
                     .onExitCommand { focused = false }

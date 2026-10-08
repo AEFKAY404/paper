@@ -26,6 +26,10 @@ final class PaperUITests: XCTestCase {
         app.activate()
         let skip = app.buttons["Skip introduction"]
         XCTAssertTrue(skip.waitForExistence(timeout: 10))
+        let introduction = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
+        introduction.name = "Paper typography onboarding"
+        introduction.lifetime = .keepAlways
+        add(introduction)
         skip.click()
         XCTAssertFalse(skip.exists)
         XCTAssertTrue(app.textFields["paper.newTab.search"].exists)
@@ -121,6 +125,14 @@ final class PaperUITests: XCTestCase {
         newTab.lifetime = .keepAlways
         add(newTab)
 
+        app.typeKey("l", modifierFlags: .command)
+        XCTAssertTrue(app.textFields["paper.commandPalette.input"].waitForExistence(timeout: 5))
+        let palette = XCTAttachment(screenshot: window.screenshot())
+        palette.name = "Paper typography command palette"
+        palette.lifetime = .keepAlways
+        add(palette)
+        app.typeKey(XCUIKeyboardKey.escape.rawValue, modifierFlags: [])
+
         app.menuBars.menuBarItems["Help"].click()
         app.menuBars.menuItems["Paper Handbook"].click()
         XCTAssertTrue(app.scrollViews["paper.handbook"].waitForExistence(timeout: 5))
@@ -128,6 +140,24 @@ final class PaperUITests: XCTestCase {
         handbook.name = "Paper handbook"
         handbook.lifetime = .keepAlways
         add(handbook)
+    }
+
+    @MainActor
+    func testSettingsTypographySnapshot() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-paper.restoreSession", "NO", "-paper.onboarding.completed", "YES", "-ApplePersistenceIgnoreState", "YES"]
+        app.launch()
+        app.activate()
+        XCTAssertTrue(app.textFields["paper.newTab.search"].waitForExistence(timeout: 10))
+        app.typeKey(",", modifierFlags: .command)
+        for _ in 0..<20 where app.windows.count < 2 { Thread.sleep(forTimeInterval: 0.1) }
+        XCTAssertGreaterThanOrEqual(app.windows.count, 2)
+        let settingsWindow = app.windows["Paper Settings"]
+        let settings = XCTAttachment(screenshot: settingsWindow.exists
+                                     ? settingsWindow.screenshot() : app.screenshot())
+        settings.name = "Paper typography settings"
+        settings.lifetime = .keepAlways
+        add(settings)
     }
 
     @MainActor
@@ -143,6 +173,20 @@ final class PaperUITests: XCTestCase {
         snapshot.lifetime = .keepAlways
         add(snapshot)
         app.textFields["paper.newTab.search"].typeText("p")
+        app.typeKey("l", modifierFlags: .command)
+        XCTAssertTrue(app.textFields["paper.commandPalette.input"].waitForExistence(timeout: 5))
+        let palette = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
+        palette.name = "Paper typography command palette dark"
+        palette.lifetime = .keepAlways
+        add(palette)
+        app.typeKey(XCUIKeyboardKey.escape.rawValue, modifierFlags: [])
+        app.menuBars.menuBarItems["Help"].click()
+        app.menuBars.menuItems["Paper Handbook"].click()
+        XCTAssertTrue(app.scrollViews["paper.handbook"].waitForExistence(timeout: 5))
+        let handbook = XCTAttachment(screenshot: app.sheets.firstMatch.screenshot())
+        handbook.name = "Paper typography handbook dark"
+        handbook.lifetime = .keepAlways
+        add(handbook)
     }
 
     @MainActor
