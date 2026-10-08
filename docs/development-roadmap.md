@@ -14,6 +14,10 @@ Implemented in this phase: optional, configurable app-local tab swipe; temporary
 
 Physical trackpad, VoiceOver, end-to-end download, and reproducible full-app performance checks remain pending. Phase 1A is not declared fully signed off.
 
-## Later phases
+## Phase 2A and 2B — Native privacy foundations
 
-Phase 2: privacy controls. Phase 3: controlled AI automation. Neither has started.
+Paper has a conservative WebKit content blocker, cosmetic filtering, a transient Privacy panel, private WebKit data stores, site permissions, and site-data controls. See [content-blocker.md](content-blocker.md), [privacy-controls.md](privacy-controls.md), and [phase2b-validation.md](phase2b-validation.md). Physical and live-site sign-off items remain in [known-limitations.md](known-limitations.md).
+
+## Phase 2C — YouTube investigation
+
+A signed-out live WebKit test reproduced video ads and inspected player-response structure. Two narrow, test-only ad-field transformations were insufficient: fetch-only removal did not stop the pre-roll, while changing the initial response delayed normal playback substantially. The runtime layer was therefore **not shipped**. See [youtube-blocking.md](youtube-blocking.md) and [advanced-content-blocking.md](advanced-content-blocking.md). Phase 3 AI work has not started.

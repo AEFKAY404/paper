@@ -29,3 +29,7 @@ Private tabs use a shared `WKWebsiteDataStore.nonPersistent()` while any private
 Site settings use the bundled Public Suffix List rather than splitting a host on dots. Exact, wildcard and exception rules and the list's private section keep hosted sites distinct. The list is an offline snapshot and has no automatic update mechanism in Phase 2B. WebKit data records are filtered by this site key; ambiguous records are left alone by the current-site clear action.
 
 Only permissions with public WebKit hooks or a Paper-owned popup routing path are offered as editable decisions. Permission choices use the requesting origin rather than the broader registrable site, preventing approval on one subdomain from granting another. Notifications remain WebKit-managed. A remembered Allow still passes through macOS device authorization. See [site-permissions.md](site-permissions.md).
+
+## 9 October 2026 — Do not ship YouTube response rewriting
+
+Paper's signed-out WebKit diagnostic reproduced a video ad carried alongside first-party player metadata. Test-only removal of ad arrays from `/youtubei/v1/player` responses did not stop the pre-roll. Removing the arrays from `ytInitialPlayerResponse` correlated with an approximately 26-second wait before normal playback in two runs. This is too large a playback regression for a default or opt-in product feature without broader evidence. The existing blocker stack and per-site bypass remain the only shipped controls. See [youtube-blocking.md](youtube-blocking.md).
