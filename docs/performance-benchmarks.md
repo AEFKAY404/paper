@@ -35,3 +35,7 @@ The cache retained at most 12 images and remained below its 24 MiB limit. The ov
 The signed Debug build and 21 core/WebKit tests passed. The final full isolated UI suite passed 11/11 in 92.88 seconds; that is test-suite wall time, not launch or interaction latency. Earlier full-suite reruns intermittently launched a windowless process after macOS restored closed-window state. The final UI harness sets `-ApplePersistenceIgnoreState YES` and activates each launch; this does not change normal app launch behavior. The Phase 1A baseline run was 8/9 in 78.33 seconds, with an intermittent dark-mode new-tab focus failure. The suites differ in case count and conditions, so they are not a before/after speed comparison. The delayed, cancellable new-tab focus request passed the final UI suite.
 
 Cold/warm launch, first usable window, first webpage paint, palette and overview first-frame latency, live tab-switch latency before/after, idle CPU, process memory, and real WebKit snapshot overhead at 5/10/20 tabs remain unmeasured reproducibly. Physical trackpad, VoiceOver and end-to-end download verification remain pending. No fixed frame-rate claim is made.
+
+## Phase 2B local session sample — 8 October 2026
+
+The [Phase 2B validation record](phase2b-validation.md) contains a one-run, signed Debug sample of standard and private WebKit session creation and local HTML load at 1, 5, 10 and 20 tabs. These timings do not include a live page's first paint or WebContent process memory and do not establish a repeatable private-mode performance difference.

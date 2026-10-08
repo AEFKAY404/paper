@@ -5,8 +5,9 @@ import WebKit
 final class WebKitEngine: BrowserEngine {
     let blocker = ContentBlockerEngine()
     private var sessions: [WeakSession] = []
+    private var privateStore: WKWebsiteDataStore?
 
-    init() {
+    init(startBlocker: Bool = true) {
         blocker.onChange = { [weak self] in
             guard let self else { return }
             sessions = sessions.filter { $0.value != nil }
@@ -15,11 +16,22 @@ final class WebKitEngine: BrowserEngine {
                 NSLog("Paper blocker: %@", blocker.diagnostics)
             }
         }
-        Task { await blocker.start() }
+        if startBlocker { Task { await blocker.start() } }
     }
 
-    func makeSession() -> any BrowserSession {
-        let session = WebKitSession(blocker: blocker)
+    func makeSession(privacyMode: TabPrivacyMode) -> any BrowserSession {
+        let store: WKWebsiteDataStore
+        if privacyMode == .private {
+            if privateStore == nil { privateStore = .nonPersistent() }
+            store = privateStore!
+        } else { store = .default() }
+        let session = WebKitSession(websiteDataStore: store, blocker: blocker, privacyMode: privacyMode)
+        session.onClose = { [weak self] in
+            guard let self else { return }
+            if !sessions.contains(where: { $0.value?.privacyMode == .private && $0.value?.isClosed == false }) {
+                privateStore = nil
+            }
+        }
         sessions.append(WeakSession(session))
         return session
     }
@@ -39,6 +51,8 @@ final class WebKitSession: NSObject, BrowserSession, WKNavigationDelegate, WKUID
     private var observations: [NSKeyValueObservation] = []
     private var downloads: [WKDownload] = []
     private var closed = false
+    var isClosed: Bool { closed }
+    var onClose: (() -> Void)?
     private let identity: BrowserIdentity
     private var identityTask: Task<Void, Never>?
     private var identityReady = false
@@ -47,6 +61,7 @@ final class WebKitSession: NSObject, BrowserSession, WKNavigationDelegate, WKUID
     private var surfaceColorTask: Task<Void, Never>?
     private var navigationRevision = 0
     private weak var blocker: ContentBlockerEngine?
+    let privacyMode: TabPrivacyMode
     private var installedBlockerRules: [WKContentRuleList] = []
     var installedBlockerIdentifiers: [String] { installedBlockerRules.map(\.identifier) }
     private var configuredBlockerRevision = -1
@@ -76,10 +91,11 @@ final class WebKitSession: NSObject, BrowserSession, WKNavigationDelegate, WKUID
     }
 
     init(websiteDataStore: WKWebsiteDataStore, identity: BrowserIdentity? = nil,
-         blocker: ContentBlockerEngine? = nil) {
+         blocker: ContentBlockerEngine? = nil, privacyMode: TabPrivacyMode = .standard) {
         let identity = identity ?? .shared
         self.identity = identity
         self.blocker = blocker
+        self.privacyMode = privacyMode
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = websiteDataStore
         identity.configure(configuration)
@@ -183,6 +199,12 @@ final class WebKitSession: NSObject, BrowserSession, WKNavigationDelegate, WKUID
         let image = try? await webView.takeSnapshot(configuration: configuration)
         return closed ? nil : image
     }
+    func siteDataSummary(for site: String) async -> SiteDataSummary {
+        await SiteDataManager(store: webView.configuration.websiteDataStore).summary(for: site)
+    }
+    func clearSiteData(for site: String) async {
+        await SiteDataManager(store: webView.configuration.websiteDataStore).clear(site: site)
+    }
     func close() {
         guard !closed else { return }
         closed = true
@@ -199,6 +221,8 @@ final class WebKitSession: NSObject, BrowserSession, WKNavigationDelegate, WKUID
         downloads.removeAll()
         onEvent = nil
         webView.removeFromSuperview()
+        onClose?()
+        onClose = nil
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
@@ -237,8 +261,40 @@ final class WebKitSession: NSObject, BrowserSession, WKNavigationDelegate, WKUID
 
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration,
                  for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
-        if let url = navigationAction.request.url { onEvent?(.openNewTab(url)) }
+        guard let url = navigationAction.request.url else { return nil }
+        let site = SiteIdentity.origin(for: webView.url) ?? "This site"
+        SitePermissionStore.shared.decide([.popups], site: site, privateTab: privacyMode == .private,
+                                          window: webView.window) { [weak self] allowed in
+            if allowed { self?.onEvent?(.openNewTab(url)) }
+        }
         return nil
+    }
+
+    func webView(_ webView: WKWebView, requestMediaCapturePermissionFor origin: WKSecurityOrigin,
+                 initiatedByFrame frame: WKFrameInfo, type: WKMediaCaptureType,
+                 decisionHandler: @escaping (WKPermissionDecision) -> Void) {
+        let site = SiteIdentity.origin(scheme: origin.protocol, host: origin.host, port: origin.port) ?? origin.host
+        let permissions: [SitePermission]
+        switch type {
+        case .camera: permissions = [.camera]
+        case .microphone: permissions = [.microphone]
+        case .cameraAndMicrophone: permissions = [.camera, .microphone]
+        @unknown default: decisionHandler(.deny); return
+        }
+        SitePermissionStore.shared.decide(permissions, site: site, privateTab: privacyMode == .private,
+                                          window: webView.window) { allowed in
+            decisionHandler(allowed ? .grant : .deny)
+        }
+    }
+
+    func webView(_ webView: WKWebView, requestGeolocationPermissionFor origin: WKSecurityOrigin,
+                 initiatedByFrame frame: WKFrameInfo,
+                 decisionHandler: @escaping (WKPermissionDecision) -> Void) {
+        let site = SiteIdentity.origin(scheme: origin.protocol, host: origin.host, port: origin.port) ?? origin.host
+        SitePermissionStore.shared.decide([.geolocation], site: site, privateTab: privacyMode == .private,
+                                          window: webView.window) { allowed in
+            decisionHandler(allowed ? .grant : .deny)
+        }
     }
 
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
@@ -267,26 +323,31 @@ final class WebKitSession: NSObject, BrowserSession, WKNavigationDelegate, WKUID
             controller.removeScriptMessageHandler(forName: CosmeticFilterEngine.messageName)
             controller.removeAllUserScripts()
             controller.add(self, name: CosmeticFilterEngine.messageName)
-            if let script = CosmeticFilterEngine.script(for: blocker.cosmeticRules,
-                                                       disabledDomains: blocker.policy.disabledForDomains) {
+            if blocker.policy.enabled && blocker.cosmeticEnabled,
+               let script = CosmeticFilterEngine.script(for: blocker.cosmeticRules,
+                                                       disabledDomains: privacyMode == .private ? [] : blocker.policy.disabledForDomains) {
                 controller.addUserScript(script)
             }
             configuredBlockerRevision = blocker.revision
         }
         applyBlocker(for: webView.url)
-        if !blocker.policy.allowsBlocking(webView.url) {
+        if !allowsBlocking(webView.url, blocker: blocker) || !blocker.cosmeticEnabled {
             webView.evaluateJavaScript("document.getElementById('paper-cosmetic')?.remove()", completionHandler: nil)
         }
     }
 
     private func applyBlocker(for url: URL?) {
         guard let blocker, !closed else { return }
-        let target = blocker.policy.allowsBlocking(url) ? blocker.rules : []
+        let target = allowsBlocking(url, blocker: blocker) ? blocker.rules : []
         guard target.map(\.identifier) != installedBlockerRules.map(\.identifier) else { return }
         let controller = webView.configuration.userContentController
         installedBlockerRules.forEach { controller.remove($0) }
         target.forEach { controller.add($0) }
         installedBlockerRules = target
+    }
+
+    private func allowsBlocking(_ url: URL?, blocker: ContentBlockerEngine) -> Bool {
+        privacyMode == .private ? blocker.policy.enabled : blocker.policy.allowsBlocking(url)
     }
 
     func webView(_ webView: WKWebView, navigationAction: WKNavigationAction, didBecome download: WKDownload) {
@@ -304,6 +365,7 @@ final class WebKitSession: NSObject, BrowserSession, WKNavigationDelegate, WKUID
                   suggestedFilename: String, completionHandler: @escaping (URL?) -> Void) {
         let panel = NSSavePanel()
         panel.nameFieldStringValue = suggestedFilename
+        panel.message = privacyMode.savedDownloadNotice
         panel.begin { result in completionHandler(result == .OK ? panel.url : nil) }
     }
     func downloadDidFinish(_ download: WKDownload) {

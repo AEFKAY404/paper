@@ -15,7 +15,7 @@ The parser deduplicates and classifies rules. It intentionally caps supported ru
 
 WebKit compilation runs asynchronously in 1,000-rule chunks. Each chunk has a versioned, content-hashed identifier. The persistent manifest points only to a source whose entire chunk set compiled successfully. A failed download, parse, or compile leaves that source's last known-good lists attached; other sources continue working. On startup, Paper loads compiled lists by identifier. If a cache is missing, it compiles the bundled snapshots. Browsing continues while this happens, so a request started before first-run compilation finishes may not be blocked. Existing live web views receive newly compiled lists without being recreated or reloaded; a reload is needed to re-request already loaded resources and to apply a refreshed cosmetic script to current DOM content.
 
-Settings → Privacy can disable the blocker globally, bypass the active site's domain, and request an update. Bypass matches the exact host and its subdomains and removes Paper's rule lists from that session before new main-frame navigation. A page already loaded under a prior policy may need a reload. The policy is separate from filter parsing and is stored locally.
+Settings → Privacy can disable the blocker globally, toggle cosmetic filtering, and request an update. The temporary Privacy sheet controls a standard tab's effective registrable site; a site exception is stored locally and the page reloads to apply it. Private tabs retain global blocking and ignore saved site exceptions. See [privacy-controls.md](privacy-controls.md).
 
 ## Statistics and diagnostics
 

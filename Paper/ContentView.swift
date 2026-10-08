@@ -4,6 +4,7 @@ struct ContentView: View {
     @ObservedObject var browser: BrowserController
     @ObservedObject var ui: BrowserUIState
     @ObservedObject var onboarding: OnboardingState
+    @ObservedObject var blocker: ContentBlockerEngine
     @StateObject private var inputMonitor = BrowserInputMonitor()
     @StateObject private var titleBar = PaperTitleBarStyler()
     @StateObject private var previews = TabPreviewStore()
@@ -25,15 +26,16 @@ struct ContentView: View {
             if let tab = browser.activeTab {
                 if tab.kind == .newTab {
                     NewTabView(tabID: tab.id,
-                               mayFocus: !ui.isPaletteVisible && !ui.isOverviewVisible && onboarding.step != .search) { input in
+                               mayFocus: !ui.isPaletteVisible && !ui.isOverviewVisible && !ui.isPrivacyVisible && onboarding.step != .search,
+                               privacyMode: tab.privacyMode) { input in
                         browser.navigate(input, searchEngine: selectedSearchEngine)
                     }
                     .id(tab.id)
-                    .accessibilityHidden(ui.isOverviewVisible || ui.isPaletteVisible)
+                    .accessibilityHidden(ui.isOverviewVisible || ui.isPaletteVisible || ui.isPrivacyVisible)
                 } else if let session = browser.activeSession {
                     BrowserSurface(session: session)
                         .id(tab.id)
-                        .accessibilityHidden(ui.isOverviewVisible || ui.isPaletteVisible)
+                        .accessibilityHidden(ui.isOverviewVisible || ui.isPaletteVisible || ui.isPrivacyVisible)
                 }
             }
 
@@ -55,7 +57,7 @@ struct ContentView: View {
 
             if ui.isPaletteVisible {
                 CommandPalette(input: $ui.paletteInput, focusRequest: ui.focusRequest,
-                               tabs: browser.tabs, perform: perform) {
+                               tabs: browser.tabs, activeTab: browser.activeTab, perform: perform) {
                     ui.dismissPalette()
                     browser.activeSession?.focus()
                 }
@@ -112,6 +114,11 @@ struct ContentView: View {
                 onboarding.reopen()
             }
         }
+        .sheet(isPresented: $ui.isPrivacyVisible, onDismiss: {
+            DispatchQueue.main.async { browser.activeSession?.focus() }
+        }) {
+            PrivacyPanelView(browser: browser, blocker: blocker, openPrivateTab: { perform(.newPrivateTab) })
+        }
         .onAppear {
             InteractionPreferences().migrateLegacyGestureSetting()
             browser.start(restorePreviousSession: restoreSession)
@@ -121,12 +128,14 @@ struct ContentView: View {
         }
         .onChange(of: browser.activeTabID) { _, _ in
             updateTitleBar()
-            guard !ui.isPaletteVisible && !ui.isOverviewVisible else { return }
+            guard !ui.isPaletteVisible && !ui.isOverviewVisible && !ui.isPrivacyVisible else { return }
             DispatchQueue.main.async { browser.activeSession?.focus() }
         }
         .onChange(of: browser.tabs.map(\.surfaceRevision)) { _, _ in updateTitleBar() }
+        .onChange(of: browser.tabs.map(\.id)) { _, _ in previews.reconcile(browser: browser) }
         .onChange(of: ui.isOverviewVisible) { _, _ in updateTitleBar() }
         .onChange(of: ui.isHandbookVisible) { _, _ in updateTitleBar() }
+        .onChange(of: ui.isPrivacyVisible) { _, _ in updateTitleBar() }
         .onChange(of: onboarding.step) { _, _ in updateTitleBar() }
         .onChange(of: colorScheme) { _, _ in updateTitleBar() }
         .onDisappear { inputMonitor.stop() }
@@ -149,7 +158,7 @@ struct ContentView: View {
 
     private var activeSurfaceColor: NSColor {
         let native = PaperSurfaceBackground.resolvedNativeColor(for: colorScheme)
-        return ui.isOverviewVisible || ui.isHandbookVisible || onboarding.step != nil || browser.activeTab?.kind != .webpage
+        return ui.isOverviewVisible || ui.isHandbookVisible || ui.isPrivacyVisible || onboarding.step != nil || browser.activeTab?.kind != .webpage
             ? native : (browser.activeTab?.surfaceColor ?? native)
     }
 }
@@ -158,6 +167,7 @@ private struct CommandPalette: View {
     @Binding var input: String
     let focusRequest: Int
     let tabs: [BrowserTab]
+    let activeTab: BrowserTab?
     let perform: (PaletteAction) -> Void
     let dismiss: () -> Void
     @FocusState private var focused: Bool
@@ -180,6 +190,13 @@ private struct CommandPalette: View {
                     .onKeyPress(.upArrow) { move(-1); return .handled }
                     .onKeyPress(.downArrow) { move(1); return .handled }
                     .accessibilityIdentifier("paper.commandPalette.input")
+                if activeTab?.privacyMode == .private {
+                    Text("PRIVATE")
+                        .font(PaperTypography.status)
+                        .tracking(1)
+                        .foregroundStyle(.secondary)
+                        .accessibilityLabel("Private tab")
+                }
             }
             .padding(.horizontal, 16)
             .frame(height: 50)

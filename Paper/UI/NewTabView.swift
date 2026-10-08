@@ -3,6 +3,7 @@ import SwiftUI
 struct NewTabView: View {
     let tabID: UUID
     let mayFocus: Bool
+    let privacyMode: TabPrivacyMode
     let submit: (String) -> Void
     @State private var input = ""
     @FocusState private var focused: Bool
@@ -24,7 +25,7 @@ struct NewTabView: View {
                 .accessibilityHint("Press Return to search or open the address")
                 .accessibilityIdentifier("paper.newTab.search")
 
-            Text("Paper")
+            Text(privacyMode == .private ? "Paper · Private" : "Paper")
                 .font(PaperTypography.smallBrand)
                 .tracking(1)
                 .foregroundStyle(.secondary)

@@ -5,6 +5,7 @@ import Foundation
 struct BrowserTab: Identifiable {
     let id: UUID
     var kind: BrowserTabKind
+    var privacyMode: TabPrivacyMode = .standard
     var url: URL?
     var title: String
     var isLoading = false
@@ -15,6 +16,14 @@ struct BrowserTab: Identifiable {
     var surfaceColor: NSColor?
     var surfaceRevision = 0
     var blockerStatistics = BlockerStatistics()
+}
+
+enum TabPrivacyMode: String, Codable, Equatable {
+    case standard, `private`
+
+    var savedDownloadNotice: String? {
+        self == .private ? "Files saved from private tabs remain on disk after the tab closes." : nil
+    }
 }
 
 enum BrowserTabKind: String, Codable, Equatable {
@@ -30,6 +39,7 @@ final class BrowserController: ObservableObject {
     private let engine: any BrowserEngine
     private let store: SessionStore
     private var sessions: [UUID: any BrowserSession] = [:]
+    private var lastStandardActiveTabID: UUID?
 
     init(engine: any BrowserEngine, store: SessionStore) {
         self.engine = engine
@@ -54,10 +64,12 @@ final class BrowserController: ObservableObject {
     }
 
     @discardableResult
-    func newTab(url: URL? = nil, activate shouldActivate: Bool = true) -> UUID {
+    func newTab(url: URL? = nil, activate shouldActivate: Bool = true,
+                privacyMode: TabPrivacyMode = .standard) -> UUID {
         let id = UUID()
-        let session = engine.makeSession()
-        let tab = BrowserTab(id: id, kind: url == nil ? .newTab : .webpage, url: url, title: "New Tab")
+        let session = engine.makeSession(privacyMode: privacyMode)
+        let tab = BrowserTab(id: id, kind: url == nil ? .newTab : .webpage,
+                             privacyMode: privacyMode, url: url, title: "New Tab")
         session.onEvent = { [weak self] event in self?.apply(event, to: id) }
         sessions[id] = session
         tabs.append(tab)
@@ -86,6 +98,9 @@ final class BrowserController: ObservableObject {
     func activate(_ id: UUID) {
         guard sessions[id] != nil else { return }
         activeTabID = id
+        if tabs.first(where: { $0.id == id })?.privacyMode == .standard {
+            lastStandardActiveTabID = id
+        }
         sessions[id]?.focus()
         sessions[id]?.refreshSurfaceColor()
         save()
@@ -133,12 +148,14 @@ final class BrowserController: ObservableObject {
         sessions.removeAll()
         tabs.removeAll()
         activeTabID = nil
+        lastStandardActiveTabID = nil
     }
 
     func save() {
-        let urls = tabs.map { $0.url }
-        let index = tabs.firstIndex { $0.id == activeTabID } ?? 0
-        store.save(SavedSession(urls: urls, activeIndex: index, kinds: tabs.map(\.kind)))
+        let standardTabs = tabs.filter { $0.privacyMode == .standard }
+        let index = standardTabs.firstIndex { $0.id == (activeTab?.privacyMode == .standard ? activeTabID : lastStandardActiveTabID) } ?? 0
+        store.save(SavedSession(urls: standardTabs.map(\.url), activeIndex: index,
+                                kinds: standardTabs.map(\.kind)))
     }
 
     private func clearActiveError() {
@@ -173,7 +190,7 @@ final class BrowserController: ObservableObject {
             }
         case .blockerStatistics(let statistics):
             tabs[index].blockerStatistics = statistics
-        case .openNewTab(let url): newTab(url: url)
+        case .openNewTab(let url): newTab(url: url, privacyMode: tabs[index].privacyMode)
         }
     }
 }

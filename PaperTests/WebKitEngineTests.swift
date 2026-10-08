@@ -47,7 +47,7 @@ struct WebKitEngineTests {
     @Test func restoredTabsKeepOrderAndActiveURL() throws {
         let defaults = UserDefaults(suiteName: UUID().uuidString)!
         let store = SessionStore(defaults: defaults)
-        let original = BrowserController(engine: WebKitEngine(), store: store)
+        let original = BrowserController(engine: WebKitEngine(startBlocker: false), store: store)
         original.start(restorePreviousSession: false)
         let firstID = try #require(original.activeTabID)
         original.navigate("https://example.com")
@@ -55,7 +55,7 @@ struct WebKitEngineTests {
         original.activate(firstID)
         original.shutdown()
 
-        let restored = BrowserController(engine: WebKitEngine(), store: store)
+        let restored = BrowserController(engine: WebKitEngine(startBlocker: false), store: store)
         restored.start()
         #expect(restored.tabs.map(\.url?.host) == ["example.com", "swift.org"])
         #expect(restored.activeTabID == restored.tabs.first?.id)
@@ -64,7 +64,7 @@ struct WebKitEngineTests {
     }
 
     @Test func tabSwitchKeepsWebViewAndJavaScriptState() async throws {
-        let engine = WebKitEngine()
+        let engine = WebKitEngine(startBlocker: false)
         let defaults = UserDefaults(suiteName: UUID().uuidString)!
         let controller = BrowserController(engine: engine, store: SessionStore(defaults: defaults))
         controller.start(restorePreviousSession: false)

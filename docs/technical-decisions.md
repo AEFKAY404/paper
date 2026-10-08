@@ -21,3 +21,11 @@ The default embedded WebKit UA caused Google to serve a compact Search layout in
 ## 8 October 2026 — Conservative native content blocking
 
 Paper uses `WKContentRuleList` rather than a Swift network proxy. The installed WebKit rejected an initial URL expression with alternation; the simpler host expression was compiled and tested in WebKit. EasyList/EasyPrivacy syntax is not silently treated as equivalent to WebKit syntax. A third-party-only, non-document rule subset, explicit caps, and per-site bypass favor predictable browsing while coverage is measured. Compiled lists are versioned and source-hashed, and a new source set replaces the previous one only after all its chunks compile. A fixed local `WKUserScript` handles basic cosmetic CSS separately. No rule-match callback exists in the supported WKWebView API, so Paper reports unavailable network counters rather than estimates. See [content-blocker.md](content-blocker.md).
+
+## 8 October 2026 — Private stores and site identity
+
+Private tabs use a shared `WKWebsiteDataStore.nonPersistent()` while any private tab remains, and never enter the URL restoration snapshot. The store is allocated by `WebKitEngine`, not the controller. This preserves a common private session for private tabs while separating it from standard browsing. Private tabs retain global blocking but ignore persistent site exceptions and remembered permissions. Downloaded files remain user-selected filesystem artifacts.
+
+Site settings use the bundled Public Suffix List rather than splitting a host on dots. Exact, wildcard and exception rules and the list's private section keep hosted sites distinct. The list is an offline snapshot and has no automatic update mechanism in Phase 2B. WebKit data records are filtered by this site key; ambiguous records are left alone by the current-site clear action.
+
+Only permissions with public WebKit hooks or a Paper-owned popup routing path are offered as editable decisions. Permission choices use the requesting origin rather than the broader registrable site, preventing approval on one subdomain from granting another. Notifications remain WebKit-managed. A remembered Allow still passes through macOS device authorization. See [site-permissions.md](site-permissions.md).

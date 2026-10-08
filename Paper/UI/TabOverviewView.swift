@@ -111,7 +111,7 @@ struct TabOverviewView: View {
                             .frame(maxWidth: 220, alignment: .leading)
                             .padding(10)
                             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
-                            Text("Paper")
+                            Text(tab.privacyMode == .private ? "Paper · Private" : "Paper")
                                 .font(PaperTypography.smallBrand)
                                 .foregroundStyle(.secondary)
                         }
@@ -128,14 +128,15 @@ struct TabOverviewView: View {
                 .clipped()
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Open \(tab.title), \(tab.url?.host ?? "New Tab")")
+            .accessibilityLabel("Open \(tab.privacyMode == .private ? "private " : "")\(tab.title), \(tab.url?.host ?? "New Tab")")
             .accessibilityValue(tab.id == browser.activeTabID ? "Current tab" :
                                 tab.id == ui.overviewSelectionID ? "Selected" : "")
             .accessibilityIdentifier("paper.overview.tab.\(tab.id)")
 
             HStack(spacing: 8) {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(tab.title).lineLimit(1).font(PaperTypography.tabTitle)
+                    Text(tab.privacyMode == .private ? "Private · \(tab.title)" : tab.title)
+                        .lineLimit(1).font(PaperTypography.tabTitle)
                     Text(tab.url?.host ?? (tab.kind == .newTab ? "Paper" : tab.url?.absoluteString ?? "Unavailable"))
                         .lineLimit(1).font(PaperTypography.metadata)
                         .foregroundStyle(PaperTypography.readingColor)

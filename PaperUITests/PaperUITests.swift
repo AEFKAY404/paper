@@ -2,6 +2,26 @@ import XCTest
 
 final class PaperUITests: XCTestCase {
     @MainActor
+    func testPrivateTabAndPrivacyPanel() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-paper.restoreSession", "NO", "-paper.onboarding.completed", "YES", "-ApplePersistenceIgnoreState", "YES"]
+        app.launch()
+        app.activate()
+        app.typeKey("n", modifierFlags: [.command, .shift])
+        XCTAssertTrue(app.staticTexts["Paper · Private"].waitForExistence(timeout: 5))
+        app.typeKey("l", modifierFlags: .command)
+        let palette = app.textFields["paper.commandPalette.input"]
+        XCTAssertTrue(palette.waitForExistence(timeout: 5))
+        palette.typeText("Privacy\n")
+        XCTAssertTrue(app.staticTexts["Private"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Open Private Tab"].exists)
+        let capture = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
+        capture.name = "Phase 2B private privacy panel"
+        capture.lifetime = .keepAlways
+        add(capture)
+    }
+
+    @MainActor
     func testNewTabPaletteAndHandbook() throws {
         let app = XCUIApplication()
         app.launchArguments = ["-paper.restoreSession", "NO", "-paper.onboarding.completed", "YES", "-ApplePersistenceIgnoreState", "YES"]

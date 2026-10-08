@@ -26,7 +26,7 @@ struct PaperApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView(browser: browser, ui: ui, onboarding: onboarding)
+            ContentView(browser: browser, ui: ui, onboarding: onboarding, blocker: webKitEngine.blocker)
                 .preferredColorScheme(testColorScheme)
                 .onAppear { lifecycle.browser = browser }
         }
@@ -36,6 +36,8 @@ struct PaperApp: App {
             CommandGroup(replacing: .newItem) {
                 Button("New Tab") { perform(.newTab) }
                     .keyboardShortcut("t")
+                Button("New Private Tab") { perform(.newPrivateTab) }
+                    .keyboardShortcut("n", modifiers: [.command, .shift])
             }
             CommandMenu("Navigate") {
                 Button("Open Location") {
@@ -56,6 +58,10 @@ struct PaperApp: App {
                     .keyboardShortcut(.tab, modifiers: .control)
                 Button("Previous Tab") { browser.selectAdjacentTab(offset: -1) }
                     .keyboardShortcut(.tab, modifiers: [.control, .shift])
+            }
+            CommandMenu("Privacy") {
+                Button("Site Privacy") { perform(.privacy) }
+                Button("New Private Tab") { perform(.newPrivateTab) }
             }
             CommandGroup(replacing: .help) {
                 Button("Paper Handbook") { ui.openHandbook() }

@@ -54,6 +54,14 @@ final class ContentBlockerEngine: ObservableObject {
     var policy: BlockerPolicy {
         didSet { publishChange() }
     }
+    var cosmeticEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(cosmeticEnabled, forKey: "paper.blocker.cosmeticEnabled")
+            publishChange()
+        }
+    }
+    var sourceTitles: [String] { FilterSource.defaults.map(\.title) }
+    var lastUpdateDate: Date? { UserDefaults.standard.object(forKey: "paper.blocker.lastUpdateAttempt") as? Date }
 
     var rules: [WKContentRuleList] {
         FilterSource.defaults.flatMap { compiledBySource[$0.id] ?? [] }
@@ -82,7 +90,8 @@ final class ContentBlockerEngine: ObservableObject {
         self.store = store ?? WKContentRuleListStore(url: storeURL) ?? .default()
         let domains = UserDefaults.standard.stringArray(forKey: "paper.blocker.disabledDomains") ?? []
         self.policy = BlockerPolicy(enabled: UserDefaults.standard.object(forKey: "paper.blocker.enabled") as? Bool ?? true,
-                                    disabledForDomains: Set(domains))
+                                    disabledForDomains: Set(domains.compactMap { SiteIdentity.shared.domain(forHost: $0) }))
+        self.cosmeticEnabled = UserDefaults.standard.object(forKey: "paper.blocker.cosmeticEnabled") as? Bool ?? true
     }
 
     func setEnabled(_ enabled: Bool) {
@@ -91,8 +100,9 @@ final class ContentBlockerEngine: ObservableObject {
     }
 
     func setDisabled(_ disabled: Bool, forDomain domain: String) {
-        let normalized = domain.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
-        guard normalized.range(of: "^[a-z0-9-]+(\\.[a-z0-9-]+)+$", options: .regularExpression) != nil else { return }
+        let normalized = SiteIdentity.shared.domain(forHost: domain) ?? ""
+        guard normalized == "localhost" || normalized.contains(":") ||
+                normalized.range(of: "^[a-z0-9-]+(\\.[a-z0-9-]+)+$", options: .regularExpression) != nil else { return }
         if disabled { policy.disabledForDomains.insert(normalized) }
         else { policy.disabledForDomains.remove(normalized) }
         UserDefaults.standard.set(Array(policy.disabledForDomains).sorted(), forKey: "paper.blocker.disabledDomains")

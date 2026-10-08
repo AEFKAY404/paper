@@ -1,0 +1,58 @@
+[
+  {
+    "appRSSDeltaBytes" : 6553600,
+    "createMs" : 2.4350881576538086,
+    "localLoadMs" : 122.2459077835083,
+    "mode" : "standard",
+    "tabs" : 1
+  },
+  {
+    "appRSSDeltaBytes" : 1032192,
+    "createMs" : 2.8049945831298828,
+    "localLoadMs" : 71.96199893951416,
+    "mode" : "private",
+    "tabs" : 1
+  },
+  {
+    "appRSSDeltaBytes" : 3555328,
+    "createMs" : 8.607029914855957,
+    "localLoadMs" : 207.81898498535156,
+    "mode" : "standard",
+    "tabs" : 5
+  },
+  {
+    "appRSSDeltaBytes" : 1802240,
+    "createMs" : 8.1490278244018555,
+    "localLoadMs" : 144.8138952255249,
+    "mode" : "private",
+    "tabs" : 5
+  },
+  {
+    "appRSSDeltaBytes" : 5406720,
+    "createMs" : 21.193981170654297,
+    "localLoadMs" : 282.70900249481201,
+    "mode" : "standard",
+    "tabs" : 10
+  },
+  {
+    "appRSSDeltaBytes" : 4390912,
+    "createMs" : 19.276976585388184,
+    "localLoadMs" : 264.55295085906982,
+    "mode" : "private",
+    "tabs" : 10
+  },
+  {
+    "appRSSDeltaBytes" : 753664,
+    "createMs" : 36.784052848815918,
+    "localLoadMs" : 533.3019495010376,
+    "mode" : "standard",
+    "tabs" : 20
+  },
+  {
+    "appRSSDeltaBytes" : 3751936,
+    "createMs" : 35.004973411560059,
+    "localLoadMs" : 531.41498565673828,
+    "mode" : "private",
+    "tabs" : 20
+  }
+]

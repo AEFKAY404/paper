@@ -1,0 +1,11 @@
+# Privacy controls — Phase 2B
+
+Paper's Privacy sheet is temporary. Open it from the command palette (`Privacy` or `Site Privacy`) or the Privacy menu. It names the active tab's mode, global protection state, registrable site, cosmetic filtering state, site data, and permissions. The sheet reports “Blocked where supported”; WebKit does not provide exact `WKContentRuleList` match counts.
+
+The global blocker and cosmetic filter switches are in Settings. For a standard tab, “Protect this site” stores a local exception for its effective registrable domain and reloads the page to apply the new rule set. “Off globally” is shown separately from a site exception. Private tabs use the global blocker and deliberately ignore saved site exceptions.
+
+The site key uses the bundled [Public Suffix List](https://publicsuffix.org/list/) including its private domains section. Paper applies its exact, wildcard and exception rules; `news.example.co.uk` maps to `example.co.uk`, while independent `*.github.io` sites remain separate. The MPL 2.0 snapshot (version `2026-10-07_07-28-19_UTC`, SHA-256 `ba7d836c0ea57a8bcf9f1fcb868066a7554bed029b441ecc6204ad8494a32612`) was downloaded from the official list URL on 8 October 2026 and is not yet updated automatically. Unknown suffixes follow the PSL implicit wildcard rule. IP addresses and localhost remain exact hosts. Existing host-based exceptions are normalized on load.
+
+WebKit's data records expose types present, not data contents or exact item counts. Paper counts current-site cookies from `WKHTTPCookieStore`, and marks local storage, caches and other data present when WebKit records report them. “Clear Site Data” confirms, removes records matching the registrable site, deletes any matching cookies not represented by a record, and reloads the page. Subdomains of the same registrable site share this scope; unrelated registrable domains are excluded. Some WebKit records may not map cleanly to a host and therefore cannot be targeted by this command.
+
+Settings → Privacy → “Clear Browsing Data…” separately selects cookies, local storage, caches and other website data from the persistent default WebKit store. It confirms before removal. “Other website data” covers remaining WebKit data types. Open pages can recreate site data; reload or close them when necessary. Private in-memory stores are excluded.

@@ -30,13 +30,15 @@ private final class MockSession: BrowserSession {
         if snapshotDelayMs > 0 { try? await Task.sleep(for: .milliseconds(snapshotDelayMs)) }
         return snapshotImage
     }
+    func siteDataSummary(for site: String) async -> SiteDataSummary { SiteDataSummary() }
+    func clearSiteData(for site: String) async {}
     func close() { closed = true }
 }
 
 @MainActor
 private final class MockEngine: BrowserEngine {
     var sessions: [MockSession] = []
-    func makeSession() -> any BrowserSession {
+    func makeSession(privacyMode: TabPrivacyMode) -> any BrowserSession {
         let session = MockSession()
         sessions.append(session)
         return session
@@ -252,6 +254,12 @@ struct PaperTests {
         BrowserActionRouter.perform(.settings, browser: browser, ui: ui, onboarding: onboarding,
                                     openSettings: { settingsOpened = true })
         #expect(settingsOpened)
+        #expect(PaletteSuggestion.matching("site privacy", tabs: browser.tabs).first?.action == .privacy)
+        BrowserActionRouter.perform(.privacy, browser: browser, ui: ui, onboarding: onboarding)
+        #expect(ui.isPrivacyVisible)
+        BrowserActionRouter.perform(.newPrivateTab, browser: browser, ui: ui, onboarding: onboarding)
+        #expect(browser.activeTab?.privacyMode == .private)
+        #expect(!ui.isPrivacyVisible)
     }
 
     @Test func snapshotQueueIsBoundedAndCacheReused() async {
@@ -283,6 +291,25 @@ struct PaperTests {
         #expect(previews.previews[cached] == nil)
         previews.dismiss()
         #expect(previews.inFlightCount <= 2)
+    }
+
+    @Test func closingPrivateTabEvictsCachedPreview() async {
+        let (browser, engine, _) = makeController()
+        browser.start(restorePreviousSession: false)
+        let privateID = browser.newTab(url: URL(string: "https://example.com"), privacyMode: .private)
+        engine.sessions.last?.snapshotImage = NSImage(size: NSSize(width: 100, height: 60))
+        let previews = TabPreviewStore()
+        previews.present(browser: browser)
+        previews.cardAppeared(privateID, browser: browser)
+        for _ in 0..<50 where previews.previews[privateID] == nil {
+            try? await Task.sleep(for: .milliseconds(20))
+        }
+        #expect(previews.previews[privateID] != nil)
+        previews.dismiss()
+        browser.closeTab(privateID)
+        previews.reconcile(browser: browser)
+        #expect(previews.previews[privateID] == nil)
+        #expect(previews.cacheCount == 0)
     }
 
     @Test func interactionPreferencesPersistAndMotionCanBeDisabled() {

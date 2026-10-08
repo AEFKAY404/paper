@@ -9,6 +9,10 @@ enum BrowserActionRouter {
         switch action {
         case .newTab:
             ui.dismissPalette(); ui.dismissOverview(); browser.newTab(); onboarding.record(.newTab)
+        case .newPrivateTab:
+            ui.dismissPalette(); ui.dismissOverview(); ui.isPrivacyVisible = false
+            browser.newTab(privacyMode: .private)
+        case .privacy: ui.openPrivacy()
         case .closeTab:
             browser.closeActiveTab(); onboarding.record(.closeTab)
         case .overview:
@@ -28,7 +32,7 @@ enum BrowserActionRouter {
             browser.navigate(input, searchEngine: searchEngine); ui.dismissPalette()
         case .none: ui.dismissPalette()
         }
-        if !ui.isPaletteVisible && !ui.isOverviewVisible && !ui.isHandbookVisible {
+        if !ui.isPaletteVisible && !ui.isOverviewVisible && !ui.isHandbookVisible && !ui.isPrivacyVisible {
             DispatchQueue.main.async { browser.activeSession?.focus() }
         }
     }

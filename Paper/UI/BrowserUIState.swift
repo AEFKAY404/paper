@@ -7,6 +7,7 @@ final class BrowserUIState: ObservableObject {
     @Published var paletteInput = ""
     @Published private(set) var focusRequest = 0
     @Published var isHandbookVisible = false
+    @Published var isPrivacyVisible = false
     @Published var isOverviewVisible = false
     @Published var overviewQuery = ""
     @Published var overviewSelectionID: UUID?
@@ -28,6 +29,12 @@ final class BrowserUIState: ObservableObject {
         dismissPalette()
         isOverviewVisible = false
         isHandbookVisible = true
+    }
+
+    func openPrivacy() {
+        dismissPalette()
+        isOverviewVisible = false
+        isPrivacyVisible = true
     }
 
     func openOverview(browser: BrowserController) {

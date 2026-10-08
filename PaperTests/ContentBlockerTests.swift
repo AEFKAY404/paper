@@ -173,5 +173,10 @@ struct ContentBlockerTests {
             try await Task.sleep(for: .milliseconds(50))
         }
         #expect(session.installedBlockerIdentifiers.isEmpty)
+        let privateSession = WebKitSession(websiteDataStore: .nonPersistent(), blocker: blocker,
+                                           privacyMode: .private)
+        defer { privateSession.close() }
+        privateSession.load(URL(string: "https://" + domain)!)
+        #expect(privateSession.installedBlockerIdentifiers.count == blocker.rules.count)
     }
 }
