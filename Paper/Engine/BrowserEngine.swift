@@ -10,6 +10,7 @@ enum BrowserEvent {
     case navigationFailed(String)
     case navigationSucceeded
     case surfaceColorChanged(NSColor?)
+    case blockerStatistics(BlockerStatistics)
     case openNewTab(URL)
 }
 

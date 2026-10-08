@@ -1,0 +1,250 @@
+import CryptoKit
+import Combine
+import Foundation
+import WebKit
+
+struct BlockerStatistics: Equatable {
+    /// WebKit does not expose per-request rule matches to WKWebView clients.
+    var blockedRequests: Int? = nil
+    var blockedTrackers: Int? = nil
+    var cosmeticMatchesAtLoad = 0
+}
+
+struct BlockerPolicy {
+    var enabled = true
+    var disabledForDomains: Set<String> = []
+
+    func allowsBlocking(_ url: URL?) -> Bool {
+        guard enabled, let host = url?.host?.lowercased() else { return enabled }
+        return !disabledForDomains.contains { host == $0 || host.hasSuffix("." + $0) }
+    }
+}
+
+@MainActor
+final class ContentBlockerEngine: ObservableObject {
+    private struct SourceRecord: Codable {
+        let hash: String
+        let identifiers: [String]
+        let networkCount: Int
+        let cosmetic: [CosmeticFilterRule]
+        let unsupportedByReason: [String: Int]
+        let omittedForLimit: Int
+        let upstreamVersion: String?
+        let sourceLastModified: String?
+        let compiledAt: Date
+        var lastChecked: Date
+    }
+    private struct Manifest: Codable {
+        let version: Int
+        var sources: [String: SourceRecord]
+    }
+
+    static let cacheVersion = 3
+    static let updateInterval: TimeInterval = 4 * 24 * 60 * 60
+    private let directory: URL
+    private let store: WKContentRuleListStore
+    private var records: [String: SourceRecord] = [:]
+    private var compiledBySource: [String: [WKContentRuleList]] = [:]
+    private var updating = false
+    private(set) var lastError: String?
+    private(set) var cacheHits = 0
+    private(set) var compileDurations: [String: TimeInterval] = [:]
+    @Published private(set) var revision = 0
+    var onChange: (() -> Void)?
+    var policy: BlockerPolicy {
+        didSet { publishChange() }
+    }
+
+    var rules: [WKContentRuleList] {
+        FilterSource.defaults.flatMap { compiledBySource[$0.id] ?? [] }
+    }
+    var cosmeticRules: [CosmeticFilterRule] {
+        FilterSource.defaults.flatMap { records[$0.id]?.cosmetic ?? [] }
+    }
+    var isActive: Bool { !rules.isEmpty && policy.enabled }
+    var diagnostics: String {
+        let sources = FilterSource.defaults.map { source in
+            guard let record = records[source.id] else { return "\(source.title): unavailable" }
+            let unsupported = record.unsupportedByReason.values.reduce(0, +)
+            let duration = compileDurations[source.id].map { String(format: "%.3fs", $0) } ?? "cache"
+            return "\(source.title) \(record.upstreamVersion ?? "unknown") \(record.hash.prefix(12)): \(record.networkCount) network, \(record.cosmetic.count) cosmetic, \(unsupported) unsupported, \(record.omittedForLimit) omitted; \(record.identifiers.count) chunks; \(duration)"
+        }.joined(separator: "\n")
+        return "cache hits: \(cacheHits)\n" + sources + (lastError.map { "\nerror: " + $0 } ?? "")
+    }
+
+    init(directory: URL? = nil, store: WKContentRuleListStore? = nil) {
+        let base = directory ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("Paper/Privacy", isDirectory: true)
+        self.directory = base
+        try? FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
+        let storeURL = base.appendingPathComponent("CompiledRules", isDirectory: true)
+        try? FileManager.default.createDirectory(at: storeURL, withIntermediateDirectories: true)
+        self.store = store ?? WKContentRuleListStore(url: storeURL) ?? .default()
+        let domains = UserDefaults.standard.stringArray(forKey: "paper.blocker.disabledDomains") ?? []
+        self.policy = BlockerPolicy(enabled: UserDefaults.standard.object(forKey: "paper.blocker.enabled") as? Bool ?? true,
+                                    disabledForDomains: Set(domains))
+    }
+
+    func setEnabled(_ enabled: Bool) {
+        policy.enabled = enabled
+        UserDefaults.standard.set(enabled, forKey: "paper.blocker.enabled")
+    }
+
+    func setDisabled(_ disabled: Bool, forDomain domain: String) {
+        let normalized = domain.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        guard normalized.range(of: "^[a-z0-9-]+(\\.[a-z0-9-]+)+$", options: .regularExpression) != nil else { return }
+        if disabled { policy.disabledForDomains.insert(normalized) }
+        else { policy.disabledForDomains.remove(normalized) }
+        UserDefaults.standard.set(Array(policy.disabledForDomains).sorted(), forKey: "paper.blocker.disabledDomains")
+    }
+
+    func start() async {
+        await loadCachedRules()
+        for source in FilterSource.defaults where compiledBySource[source.id] == nil {
+            guard let url = Bundle.main.url(forResource: source.id, withExtension: "txt"),
+                  let text = try? String(contentsOf: url, encoding: .utf8) else {
+                lastError = "Bundled \(source.title) rules unavailable"
+                continue
+            }
+            await install(text, for: source, checkedAt: Date())
+        }
+        let lastAttempt = UserDefaults.standard.object(forKey: "paper.blocker.lastUpdateAttempt") as? Date
+        let updateDue = lastAttempt.map { Date().timeIntervalSince($0) >= Self.updateInterval } ?? true
+        if updateDue,
+           FilterSource.defaults.contains(where: { source in
+            guard let checked = records[source.id]?.lastChecked else { return true }
+            return Date().timeIntervalSince(checked) >= Self.updateInterval
+        }) {
+            await updateFilters()
+        }
+    }
+
+    func updateFilters() async {
+        guard !updating else { return }
+        updating = true
+        lastError = nil
+        UserDefaults.standard.set(Date(), forKey: "paper.blocker.lastUpdateAttempt")
+        defer { updating = false }
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.timeoutIntervalForRequest = 25
+        configuration.httpCookieAcceptPolicy = .never
+        let session = URLSession(configuration: configuration)
+        defer { session.invalidateAndCancel() }
+        for source in FilterSource.defaults {
+            do {
+                let (data, response) = try await session.data(from: source.url)
+                guard (response as? HTTPURLResponse)?.statusCode == 200,
+                      (100_000...8_000_000).contains(data.count),
+                      let text = String(data: data, encoding: .utf8),
+                      text.hasPrefix("[Adblock Plus") else {
+                    throw BlockerError.invalidSource
+                }
+                let hash = Self.hash(data)
+                if records[source.id]?.hash == hash {
+                    records[source.id]?.lastChecked = Date()
+                    saveManifest()
+                } else {
+                    await install(text, for: source, checkedAt: Date())
+                }
+            } catch {
+                lastError = "\(source.title) update failed: \(error.localizedDescription)"
+            }
+        }
+    }
+
+    private func loadCachedRules() async {
+        let url = directory.appendingPathComponent("manifest.json")
+        guard let data = try? Data(contentsOf: url),
+              let manifest = try? JSONDecoder().decode(Manifest.self, from: data),
+              manifest.version == Self.cacheVersion else { return }
+        for source in FilterSource.defaults {
+            guard let record = manifest.sources[source.id] else { continue }
+            var lists: [WKContentRuleList] = []
+            for identifier in record.identifiers {
+                guard let list = try? await store.contentRuleList(forIdentifier: identifier) else {
+                    lists.removeAll()
+                    break
+                }
+                lists.append(list)
+            }
+            guard lists.count == record.identifiers.count, !lists.isEmpty else { continue }
+            records[source.id] = record
+            compiledBySource[source.id] = lists
+            cacheHits += 1
+        }
+        publishChange()
+    }
+
+    func install(_ text: String, for source: FilterSource, checkedAt: Date) async {
+        let data = Data(text.utf8)
+        let hash = Self.hash(data)
+        if records[source.id]?.hash == hash, compiledBySource[source.id] != nil { return }
+        let parsed = await Task.detached(priority: .utility) { FilterParser.parse(text) }.value
+        guard !parsed.network.isEmpty else { lastError = "No supported \(source.title) network rules"; return }
+        let chunks = stride(from: 0, to: parsed.network.count, by: 1_000).map {
+            Array(parsed.network[$0..<min($0 + 1_000, parsed.network.count)])
+        }
+        var staged: [WKContentRuleList] = []
+        let began = Date()
+        do {
+            for (index, chunk) in chunks.enumerated() {
+                let identifier = "paper.v\(Self.cacheVersion).\(source.id).\(hash.prefix(12)).\(index)"
+                let json = try RuleCompiler.json(for: chunk)
+                guard let list = try await store.compileContentRuleList(forIdentifier: identifier, encodedContentRuleList: json) else {
+                    throw BlockerError.compilationReturnedNoList
+                }
+                staged.append(list)
+            }
+        } catch {
+            for list in staged { try? await store.removeContentRuleList(forIdentifier: list.identifier) }
+            lastError = "\(source.title) compilation failed: \(error.localizedDescription)"
+            return
+        }
+        compileDurations[source.id] = Date().timeIntervalSince(began)
+        let old = records[source.id]
+        records[source.id] = SourceRecord(hash: hash, identifiers: staged.map(\.identifier),
+                                          networkCount: parsed.network.count, cosmetic: parsed.cosmetic,
+                                          unsupportedByReason: parsed.unsupportedByReason,
+                                          omittedForLimit: parsed.omittedForLimit,
+                                          upstreamVersion: Self.header("Version", in: text),
+                                          sourceLastModified: Self.header("Last modified", in: text),
+                                          compiledAt: Date(), lastChecked: checkedAt)
+        compiledBySource[source.id] = staged
+        saveManifest()
+        publishChange()
+        if let old, old.hash != hash {
+            for identifier in old.identifiers { try? await store.removeContentRuleList(forIdentifier: identifier) }
+        }
+    }
+
+    private func saveManifest() {
+        let url = directory.appendingPathComponent("manifest.json")
+        guard let data = try? JSONEncoder().encode(Manifest(version: Self.cacheVersion, sources: records)) else { return }
+        do { try data.write(to: url, options: .atomic) }
+        catch { lastError = "Unable to persist blocker cache: \(error.localizedDescription)" }
+    }
+
+    private func publishChange() {
+        revision += 1
+        onChange?()
+    }
+
+    private static func hash(_ data: Data) -> String {
+        SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+    }
+
+    private static func header(_ key: String, in text: String) -> String? {
+        text.split(separator: "\n", maxSplits: 20).first { $0.hasPrefix("! \(key): ") }
+            .map { String($0.dropFirst(key.count + 4)).trimmingCharacters(in: .whitespacesAndNewlines) }
+    }
+
+    private enum BlockerError: LocalizedError {
+        case invalidSource, compilationReturnedNoList
+        var errorDescription: String? {
+            switch self {
+            case .invalidSource: "Invalid or incomplete filter download"
+            case .compilationReturnedNoList: "WebKit returned no compiled rule list"
+            }
+        }
+    }
+}

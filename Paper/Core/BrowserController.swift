@@ -14,6 +14,7 @@ struct BrowserTab: Identifiable {
     var previewRevision = 0
     var surfaceColor: NSColor?
     var surfaceRevision = 0
+    var blockerStatistics = BlockerStatistics()
 }
 
 enum BrowserTabKind: String, Codable, Equatable {
@@ -170,6 +171,8 @@ final class BrowserController: ObservableObject {
                 tabs[index].surfaceColor = color
                 tabs[index].surfaceRevision += 1
             }
+        case .blockerStatistics(let statistics):
+            tabs[index].blockerStatistics = statistics
         case .openNewTab(let url): newTab(url: url)
         }
     }

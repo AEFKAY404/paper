@@ -3,9 +3,16 @@ import SwiftUI
 @main
 struct PaperApp: App {
     @NSApplicationDelegateAdaptor(PaperLifecycleDelegate.self) private var lifecycle
-    @StateObject private var browser = BrowserController(engine: WebKitEngine(), store: SessionStore())
+    private let webKitEngine: WebKitEngine
+    @StateObject private var browser: BrowserController
     @StateObject private var ui = BrowserUIState()
     @StateObject private var onboarding = OnboardingState()
+
+    init() {
+        let engine = WebKitEngine()
+        webKitEngine = engine
+        _browser = StateObject(wrappedValue: BrowserController(engine: engine, store: SessionStore()))
+    }
 
     private var testColorScheme: ColorScheme? {
         #if DEBUG
@@ -57,7 +64,7 @@ struct PaperApp: App {
         }
 
         Settings {
-            PaperSettingsView(browser: browser)
+            PaperSettingsView(browser: browser, blocker: webKitEngine.blocker)
         }
         .windowStyle(.hiddenTitleBar)
     }

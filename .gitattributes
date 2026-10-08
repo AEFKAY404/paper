@@ -1,0 +1,2 @@
+# Keep upstream filter snapshots byte-for-byte for their recorded SHA-256 hashes.
+Paper/Privacy/Seeds/*.txt -text -diff

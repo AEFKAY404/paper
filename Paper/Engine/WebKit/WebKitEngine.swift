@@ -3,11 +3,35 @@ import WebKit
 
 @MainActor
 final class WebKitEngine: BrowserEngine {
-    func makeSession() -> any BrowserSession { WebKitSession() }
+    let blocker = ContentBlockerEngine()
+    private var sessions: [WeakSession] = []
+
+    init() {
+        blocker.onChange = { [weak self] in
+            guard let self else { return }
+            sessions = sessions.filter { $0.value != nil }
+            sessions.forEach { $0.value?.updateBlocker() }
+            if ProcessInfo.processInfo.environment["PAPER_DIAGNOSTICS"] == "1" {
+                NSLog("Paper blocker: %@", blocker.diagnostics)
+            }
+        }
+        Task { await blocker.start() }
+    }
+
+    func makeSession() -> any BrowserSession {
+        let session = WebKitSession(blocker: blocker)
+        sessions.append(WeakSession(session))
+        return session
+    }
+
+    private struct WeakSession {
+        weak var value: WebKitSession?
+        init(_ value: WebKitSession) { self.value = value }
+    }
 }
 
 @MainActor
-final class WebKitSession: NSObject, BrowserSession, WKNavigationDelegate, WKUIDelegate, WKDownloadDelegate {
+final class WebKitSession: NSObject, BrowserSession, WKNavigationDelegate, WKUIDelegate, WKDownloadDelegate, WKScriptMessageHandler {
     let webView: WKWebView
     var view: NSView { webView }
     var onEvent: ((BrowserEvent) -> Void)?
@@ -22,6 +46,11 @@ final class WebKitSession: NSObject, BrowserSession, WKNavigationDelegate, WKUID
     private var pendingURL: URL?
     private var surfaceColorTask: Task<Void, Never>?
     private var navigationRevision = 0
+    private weak var blocker: ContentBlockerEngine?
+    private var installedBlockerRules: [WKContentRuleList] = []
+    var installedBlockerIdentifiers: [String] { installedBlockerRules.map(\.identifier) }
+    private var configuredBlockerRevision = -1
+    private var statistics = BlockerStatistics()
 
     // Only solid, opaque computed CSS colors are useful for a native title bar.
     // Root takes precedence; body supplies the common transparent-root case.
@@ -42,14 +71,25 @@ final class WebKitSession: NSObject, BrowserSession, WKNavigationDelegate, WKUID
         self.init(websiteDataStore: .default())
     }
 
-    init(websiteDataStore: WKWebsiteDataStore, identity: BrowserIdentity? = nil) {
+    convenience init(blocker: ContentBlockerEngine) {
+        self.init(websiteDataStore: .default(), blocker: blocker)
+    }
+
+    init(websiteDataStore: WKWebsiteDataStore, identity: BrowserIdentity? = nil,
+         blocker: ContentBlockerEngine? = nil) {
         let identity = identity ?? .shared
         self.identity = identity
+        self.blocker = blocker
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = websiteDataStore
         identity.configure(configuration)
+        if let blocker, blocker.policy.enabled {
+            for list in blocker.rules { configuration.userContentController.add(list) }
+            installedBlockerRules = blocker.rules
+        }
         webView = WKWebView(frame: .zero, configuration: configuration)
         super.init()
+        if blocker != nil { updateBlocker() }
         webView.navigationDelegate = self
         webView.uiDelegate = self
         webView.allowsBackForwardNavigationGestures = UserDefaults.standard.object(forKey: "paper.historyGestures") as? Bool ?? true
@@ -98,6 +138,7 @@ final class WebKitSession: NSObject, BrowserSession, WKNavigationDelegate, WKUID
     func load(_ url: URL) {
         guard !closed else { return }
         guard identityReady else { pendingURL = url; return }
+        applyBlocker(for: url)
         if let standardUserAgent {
             webView.customUserAgent = identity.userAgent(for: url, defaultUA: standardUserAgent)
         }
@@ -153,6 +194,7 @@ final class WebKitSession: NSObject, BrowserSession, WKNavigationDelegate, WKUID
         observations.removeAll()
         webView.navigationDelegate = nil
         webView.uiDelegate = nil
+        webView.configuration.userContentController.removeScriptMessageHandler(forName: CosmeticFilterEngine.messageName)
         downloads.forEach { $0.cancel() }
         downloads.removeAll()
         onEvent = nil
@@ -178,6 +220,8 @@ final class WebKitSession: NSObject, BrowserSession, WKNavigationDelegate, WKUID
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
         navigationRevision += 1
         surfaceColorTask?.cancel()
+        statistics.cosmeticMatchesAtLoad = 0
+        onEvent?(.blockerStatistics(statistics))
     }
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         onEvent?(.navigationSucceeded)
@@ -199,7 +243,50 @@ final class WebKitSession: NSObject, BrowserSession, WKNavigationDelegate, WKUID
 
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
                  decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+        if navigationAction.targetFrame?.isMainFrame == true {
+            applyBlocker(for: navigationAction.request.url)
+        }
         decisionHandler(navigationAction.shouldPerformDownload ? .download : .allow)
+    }
+
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        guard message.name == CosmeticFilterEngine.messageName,
+              message.frameInfo.isMainFrame, message.webView === webView,
+              let count = message.body as? NSNumber else { return }
+        statistics.cosmeticMatchesAtLoad = max(0, count.intValue)
+        if ProcessInfo.processInfo.environment["PAPER_DIAGNOSTICS"] == "1" {
+            NSLog("Paper cosmetic initial matches: %d", statistics.cosmeticMatchesAtLoad)
+        }
+        onEvent?(.blockerStatistics(statistics))
+    }
+
+    func updateBlocker() {
+        guard let blocker, !closed else { return }
+        let controller = webView.configuration.userContentController
+        if configuredBlockerRevision != blocker.revision {
+            controller.removeScriptMessageHandler(forName: CosmeticFilterEngine.messageName)
+            controller.removeAllUserScripts()
+            controller.add(self, name: CosmeticFilterEngine.messageName)
+            if let script = CosmeticFilterEngine.script(for: blocker.cosmeticRules,
+                                                       disabledDomains: blocker.policy.disabledForDomains) {
+                controller.addUserScript(script)
+            }
+            configuredBlockerRevision = blocker.revision
+        }
+        applyBlocker(for: webView.url)
+        if !blocker.policy.allowsBlocking(webView.url) {
+            webView.evaluateJavaScript("document.getElementById('paper-cosmetic')?.remove()", completionHandler: nil)
+        }
+    }
+
+    private func applyBlocker(for url: URL?) {
+        guard let blocker, !closed else { return }
+        let target = blocker.policy.allowsBlocking(url) ? blocker.rules : []
+        guard target.map(\.identifier) != installedBlockerRules.map(\.identifier) else { return }
+        let controller = webView.configuration.userContentController
+        installedBlockerRules.forEach { controller.remove($0) }
+        target.forEach { controller.add($0) }
+        installedBlockerRules = target
     }
 
     func webView(_ webView: WKWebView, navigationAction: WKNavigationAction, didBecome download: WKDownload) {
