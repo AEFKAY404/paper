@@ -125,6 +125,34 @@ struct WebKitEngineTests {
         #expect(count == "1")
     }
 
+    @Test func detectsOnlyOpaqueRootOrBodyBackground() async throws {
+        let session = WebKitSession(websiteDataStore: .nonPersistent())
+        defer { session.close() }
+        var latest: NSColor?
+        var updates = 0
+        session.onEvent = { event in
+            if case .surfaceColorChanged(let color) = event {
+                latest = color
+                updates += 1
+            }
+        }
+
+        session.webView.loadHTMLString("<html style='background: rgb(18, 52, 86)'><body style='background: white'>Root</body></html>", baseURL: nil)
+        for _ in 0..<100 where updates == 0 { try await Task.sleep(for: .milliseconds(50)) }
+        #expect(try #require(latest?.usingColorSpace(.deviceRGB)?.redComponent) < 0.08)
+        #expect(try #require(latest?.usingColorSpace(.deviceRGB)?.greenComponent) > 0.19)
+
+        updates = 0
+        session.webView.loadHTMLString("<html><body style='background: rgb(220, 30, 40)'>Body</body></html>", baseURL: nil)
+        for _ in 0..<100 where updates == 0 { try await Task.sleep(for: .milliseconds(50)) }
+        #expect(try #require(latest?.usingColorSpace(.deviceRGB)?.redComponent) > 0.85)
+
+        updates = 0
+        session.webView.loadHTMLString("<html><body style='background: linear-gradient(red, blue)'>Gradient</body></html>", baseURL: nil)
+        for _ in 0..<100 where updates == 0 { try await Task.sleep(for: .milliseconds(50)) }
+        #expect(latest == nil)
+    }
+
     @Test func realHTTPSPage() async throws {
         let session = WebKitSession()
         defer { session.close() }

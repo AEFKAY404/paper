@@ -2,6 +2,7 @@ import SwiftUI
 
 struct PaperSettingsView: View {
     @ObservedObject var browser: BrowserController
+    @Environment(\.colorScheme) private var colorScheme
     @AppStorage("paper.searchEngine") private var searchEngine = SearchEngine.google.rawValue
     @AppStorage("paper.restoreSession") private var restoreSession = true
     @AppStorage("paper.historyGestures") private var historyGestures = true
@@ -39,5 +40,10 @@ struct PaperSettingsView: View {
         }
         .formStyle(.grouped)
         .frame(width: 500, height: 420)
+        .background(PaperSurfaceBackground.color)
+        .background(BrowserWindowAnchor { window in
+            PaperSurfaceBackground.configure(window)
+            window?.backgroundColor = PaperSurfaceBackground.resolvedNativeColor(for: colorScheme)
+        })
     }
 }

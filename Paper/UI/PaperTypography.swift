@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// A small native type scale. Thin weights are reserved for display sizes;
-/// functional and long-form text keeps a readable regular or medium weight.
+/// A small native type scale. Functional and long-form text keeps a readable
+/// regular or medium weight; native placeholder styling supplies the quieter hint.
 enum PaperTypography {
     static let placeholderColor: Color = .primary.opacity(0.68)
     static let readingColor: Color = .primary.opacity(0.8)
@@ -13,7 +13,7 @@ enum PaperTypography {
     static let sectionHeading: Font = .system(size: 26, weight: .light)
     static let onboardingHeading: Font = .system(size: 24, weight: .thin)
 
-    static let newTabInput: Font = .system(size: 17, weight: .light)
+    static let newTabInput: Font = .system(size: 22, weight: .light)
     static let commandInput: Font = .system(size: 16, weight: .light)
     static let searchInput: Font = .body.weight(.light)
     static let commandTitle: Font = .callout.weight(.light)

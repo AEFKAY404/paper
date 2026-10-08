@@ -5,11 +5,13 @@ struct ContentView: View {
     @ObservedObject var ui: BrowserUIState
     @ObservedObject var onboarding: OnboardingState
     @StateObject private var inputMonitor = BrowserInputMonitor()
+    @StateObject private var titleBar = PaperTitleBarStyler()
     @StateObject private var previews = TabPreviewStore()
     @AppStorage("paper.restoreSession") private var restoreSession = true
     @AppStorage("paper.searchEngine") private var searchEngine = SearchEngine.google.rawValue
     @AppStorage(InteractionPreferences.reduceMotionKey) private var reduceDecorativeMotion = false
     @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.openSettings) private var openSettings
 
     private var selectedSearchEngine: SearchEngine {
@@ -18,7 +20,7 @@ struct ContentView: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            Color(nsColor: .windowBackgroundColor)
+            Color(nsColor: activeSurfaceColor).ignoresSafeArea()
 
             if let tab = browser.activeTab {
                 if tab.kind == .newTab {
@@ -31,7 +33,6 @@ struct ContentView: View {
                 } else if let session = browser.activeSession {
                     BrowserSurface(session: session)
                         .id(tab.id)
-                        .ignoresSafeArea()
                         .accessibilityHidden(ui.isOverviewVisible || ui.isPaletteVisible)
                 }
             }
@@ -101,7 +102,11 @@ struct ContentView: View {
         .animation(PaperMotion.overlay(reduceMotion: systemReduceMotion || reduceDecorativeMotion), value: ui.isOverviewVisible)
         .animation(PaperMotion.overlay(reduceMotion: systemReduceMotion || reduceDecorativeMotion), value: ui.isPaletteVisible)
         .animation(PaperMotion.feedback(reduceMotion: systemReduceMotion || reduceDecorativeMotion), value: ui.feedbackText)
-        .background(BrowserWindowAnchor { inputMonitor.browserWindow = $0 })
+        .background(BrowserWindowAnchor { window in
+            inputMonitor.browserWindow = window
+            titleBar.attach(window)
+            updateTitleBar()
+        })
         .sheet(isPresented: $ui.isHandbookVisible) {
             HandbookView {
                 onboarding.reopen()
@@ -112,11 +117,18 @@ struct ContentView: View {
             browser.start(restorePreviousSession: restoreSession)
             onboarding.showIfNeeded()
             inputMonitor.start(browser: browser, ui: ui, onboarding: onboarding)
+            updateTitleBar()
         }
         .onChange(of: browser.activeTabID) { _, _ in
+            updateTitleBar()
             guard !ui.isPaletteVisible && !ui.isOverviewVisible else { return }
             DispatchQueue.main.async { browser.activeSession?.focus() }
         }
+        .onChange(of: browser.tabs.map(\.surfaceRevision)) { _, _ in updateTitleBar() }
+        .onChange(of: ui.isOverviewVisible) { _, _ in updateTitleBar() }
+        .onChange(of: ui.isHandbookVisible) { _, _ in updateTitleBar() }
+        .onChange(of: onboarding.step) { _, _ in updateTitleBar() }
+        .onChange(of: colorScheme) { _, _ in updateTitleBar() }
         .onDisappear { inputMonitor.stop() }
     }
 
@@ -129,6 +141,16 @@ struct ContentView: View {
         ui.dismissOverview()
         ui.showFeedback("Closed tab overview")
         DispatchQueue.main.async { browser.activeSession?.focus() }
+    }
+
+    private func updateTitleBar() {
+        titleBar.update(activeSurfaceColor)
+    }
+
+    private var activeSurfaceColor: NSColor {
+        let native = PaperSurfaceBackground.resolvedNativeColor(for: colorScheme)
+        return ui.isOverviewVisible || ui.isHandbookVisible || onboarding.step != nil || browser.activeTab?.kind != .webpage
+            ? native : (browser.activeTab?.surfaceColor ?? native)
     }
 }
 

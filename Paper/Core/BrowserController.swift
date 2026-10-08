@@ -12,6 +12,8 @@ struct BrowserTab: Identifiable {
     var canGoForward = false
     var error: String?
     var previewRevision = 0
+    var surfaceColor: NSColor?
+    var surfaceRevision = 0
 }
 
 enum BrowserTabKind: String, Codable, Equatable {
@@ -84,6 +86,7 @@ final class BrowserController: ObservableObject {
         guard sessions[id] != nil else { return }
         activeTabID = id
         sessions[id]?.focus()
+        sessions[id]?.refreshSurfaceColor()
         save()
     }
 
@@ -162,6 +165,11 @@ final class BrowserController: ObservableObject {
         case .navigationSucceeded:
             tabs[index].error = nil
             tabs[index].previewRevision += 1
+        case .surfaceColorChanged(let color):
+            if tabs[index].surfaceColor != color {
+                tabs[index].surfaceColor = color
+                tabs[index].surfaceRevision += 1
+            }
         case .openNewTab(let url): newTab(url: url)
         }
     }

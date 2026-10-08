@@ -75,6 +75,26 @@ struct PaperTests {
         #expect(controller.tabs.count == 1)
     }
 
+    @Test func surfaceColorsBelongToTheirTabs() {
+        let (controller, engine, _) = makeController()
+        controller.start(restorePreviousSession: false)
+        let firstID = controller.activeTabID!
+        controller.navigate("https://example.com")
+        let firstColor = NSColor(srgbRed: 1, green: 1, blue: 1, alpha: 1)
+        engine.sessions[0].onEvent?(.surfaceColorChanged(firstColor))
+        let secondID = controller.newTab(url: URL(string: "https://swift.org"))
+        let secondColor = NSColor(srgbRed: 0.1, green: 0.1, blue: 0.1, alpha: 1)
+        engine.sessions[1].onEvent?(.surfaceColorChanged(secondColor))
+        #expect(controller.activeTab?.surfaceColor == secondColor)
+        engine.sessions[0].onEvent?(.surfaceColorChanged(nil))
+        #expect(controller.activeTab?.surfaceColor == secondColor)
+        controller.activate(firstID)
+        #expect(controller.activeTab?.surfaceColor == nil)
+        controller.activate(secondID)
+        #expect(controller.activeTab?.surfaceColor == secondColor)
+        controller.shutdown()
+    }
+
     @Test func restorationPreservesOrderAndActiveTab() {
         let (controller, _, store) = makeController()
         controller.start()

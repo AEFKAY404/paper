@@ -20,6 +20,23 @@ final class WebKitSession: NSObject, BrowserSession, WKNavigationDelegate, WKUID
     private var identityReady = false
     private var standardUserAgent: String?
     private var pendingURL: URL?
+    private var surfaceColorTask: Task<Void, Never>?
+    private var navigationRevision = 0
+
+    // Only solid, opaque computed CSS colors are useful for a native title bar.
+    // Root takes precedence; body supplies the common transparent-root case.
+    private static let surfaceColorScript = """
+    (() => {
+      for (const element of [document.documentElement, document.body]) {
+        if (!element) continue;
+        const color = getComputedStyle(element).backgroundColor;
+        const match = color.match(/^rgba?\\(\\s*(\\d+(?:\\.\\d+)?)\\s*[, ]\\s*(\\d+(?:\\.\\d+)?)\\s*[, ]\\s*(\\d+(?:\\.\\d+)?)(?:\\s*[, /]\\s*(\\d*\\.?\\d+))?\\s*\\)$/i);
+        if (!match || (match[4] !== undefined && Number(match[4]) < 0.999)) continue;
+        return [Number(match[1]), Number(match[2]), Number(match[3])];
+      }
+      return null;
+    })()
+    """
 
     override convenience init() {
         self.init(websiteDataStore: .default())
@@ -97,6 +114,26 @@ final class WebKitSession: NSObject, BrowserSession, WKNavigationDelegate, WKUID
     func setHistorySwipe(enabled: Bool) {
         webView.allowsBackForwardNavigationGestures = enabled
     }
+    func refreshSurfaceColor() {
+        guard !closed, !webView.isLoading else { return }
+        surfaceColorTask?.cancel()
+        let revision = navigationRevision
+        surfaceColorTask = Task { [weak self] in
+            guard let self else { return }
+            let result = try? await webView.evaluateJavaScript(Self.surfaceColorScript)
+            guard !Task.isCancelled, !closed, navigationRevision == revision else { return }
+            let color: NSColor?
+            if let values = result as? [NSNumber], values.count == 3,
+               values.allSatisfy({ $0.doubleValue.isFinite && (0...255).contains($0.doubleValue) }) {
+                color = NSColor(srgbRed: values[0].doubleValue / 255,
+                                green: values[1].doubleValue / 255,
+                                blue: values[2].doubleValue / 255, alpha: 1)
+            } else {
+                color = nil
+            }
+            onEvent?(.surfaceColorChanged(color))
+        }
+    }
     func snapshot(maxWidth: CGFloat) async -> NSImage? {
         guard !closed, webView.url != nil, !webView.isLoading, webView.bounds.width > 0 else { return nil }
         let configuration = WKSnapshotConfiguration()
@@ -109,6 +146,7 @@ final class WebKitSession: NSObject, BrowserSession, WKNavigationDelegate, WKUID
         guard !closed else { return }
         closed = true
         identityTask?.cancel()
+        surfaceColorTask?.cancel()
         identityTask = nil
         pendingURL = nil
         webView.stopLoading()
@@ -123,19 +161,34 @@ final class WebKitSession: NSObject, BrowserSession, WKNavigationDelegate, WKUID
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
         guard (error as NSError).code != NSURLErrorCancelled else { return }
+        surfaceColorTask?.cancel()
         if ProcessInfo.processInfo.environment["PAPER_DIAGNOSTICS"] == "1" { NSLog("Paper navigation error: %@", error.localizedDescription) }
         onEvent?(.navigationFailed(error.localizedDescription))
     }
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
         guard (error as NSError).code != NSURLErrorCancelled else { return }
+        surfaceColorTask?.cancel()
         if ProcessInfo.processInfo.environment["PAPER_DIAGNOSTICS"] == "1" { NSLog("Paper provisional navigation error: %@", error.localizedDescription) }
         onEvent?(.navigationFailed(error.localizedDescription))
     }
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+        surfaceColorTask?.cancel()
         onEvent?(.navigationFailed("The webpage process stopped. Reload to try again."))
+    }
+    func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+        navigationRevision += 1
+        surfaceColorTask?.cancel()
     }
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         onEvent?(.navigationSucceeded)
+        refreshSurfaceColor()
+        // A single follow-up handles sites that apply a theme immediately after load.
+        let revision = navigationRevision
+        Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(750))
+            guard let self, !closed, navigationRevision == revision, !webView.isLoading else { return }
+            refreshSurfaceColor()
+        }
     }
 
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration,

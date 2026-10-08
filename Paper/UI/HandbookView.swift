@@ -38,7 +38,7 @@ struct HandbookView: View {
             .frame(maxWidth: .infinity)
         }
         .frame(minWidth: 620, minHeight: 540)
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background(PaperSurfaceBackground.color)
         .accessibilityIdentifier("paper.handbook")
     }
 

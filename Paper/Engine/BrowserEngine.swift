@@ -9,6 +9,7 @@ enum BrowserEvent {
     case navigationChanged(canGoBack: Bool, canGoForward: Bool)
     case navigationFailed(String)
     case navigationSucceeded
+    case surfaceColorChanged(NSColor?)
     case openNewTab(URL)
 }
 
@@ -23,8 +24,13 @@ protocol BrowserSession: AnyObject {
     func stop()
     func focus()
     func setHistorySwipe(enabled: Bool)
+    func refreshSurfaceColor()
     func snapshot(maxWidth: CGFloat) async -> NSImage?
     func close()
+}
+
+extension BrowserSession {
+    func refreshSurfaceColor() {}
 }
 
 @MainActor

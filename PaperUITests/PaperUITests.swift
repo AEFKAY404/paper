@@ -115,15 +115,21 @@ final class PaperUITests: XCTestCase {
     @MainActor
     func testVisualSnapshots() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-paper.restoreSession", "NO", "-paper.onboarding.completed", "YES", "-ApplePersistenceIgnoreState", "YES"]
+        app.launchArguments = ["-paper.restoreSession", "NO", "-paper.onboarding.completed", "YES", "-ApplePersistenceIgnoreState", "YES",
+                               "-paper.uiTest.light"]
         app.launch()
         app.activate()
         XCTAssertTrue(app.textFields["paper.newTab.search"].waitForExistence(timeout: 10))
         let window = app.windows.firstMatch
         let newTab = XCTAttachment(screenshot: window.screenshot())
-        newTab.name = "Paper new tab"
+        newTab.name = "Paper new tab focused empty light"
         newTab.lifetime = .keepAlways
         add(newTab)
+        app.textFields["paper.newTab.search"].typeText("paper notes")
+        let typing = XCTAttachment(screenshot: window.screenshot())
+        typing.name = "Paper new tab focused typing light"
+        typing.lifetime = .keepAlways
+        add(typing)
 
         app.typeKey("l", modifierFlags: .command)
         XCTAssertTrue(app.textFields["paper.commandPalette.input"].waitForExistence(timeout: 5))
@@ -169,10 +175,14 @@ final class PaperUITests: XCTestCase {
         app.activate()
         XCTAssertTrue(app.textFields["paper.newTab.search"].waitForExistence(timeout: 10))
         let snapshot = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
-        snapshot.name = "Paper new tab dark"
+        snapshot.name = "Paper new tab focused empty dark"
         snapshot.lifetime = .keepAlways
         add(snapshot)
-        app.textFields["paper.newTab.search"].typeText("p")
+        app.textFields["paper.newTab.search"].typeText("paper notes")
+        let typing = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
+        typing.name = "Paper new tab focused typing dark"
+        typing.lifetime = .keepAlways
+        add(typing)
         app.typeKey("l", modifierFlags: .command)
         XCTAssertTrue(app.textFields["paper.commandPalette.input"].waitForExistence(timeout: 5))
         let palette = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())

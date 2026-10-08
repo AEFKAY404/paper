@@ -9,7 +9,9 @@ struct PaperApp: App {
 
     private var testColorScheme: ColorScheme? {
         #if DEBUG
-        ProcessInfo.processInfo.arguments.contains("-paper.uiTest.dark") ? .dark : nil
+        if ProcessInfo.processInfo.arguments.contains("-paper.uiTest.dark") { return .dark }
+        if ProcessInfo.processInfo.arguments.contains("-paper.uiTest.light") { return .light }
+        return nil
         #else
         nil
         #endif
@@ -22,6 +24,7 @@ struct PaperApp: App {
                 .onAppear { lifecycle.browser = browser }
         }
         .defaultSize(width: 1100, height: 750)
+        .windowStyle(.hiddenTitleBar)
         .commands {
             CommandGroup(replacing: .newItem) {
                 Button("New Tab") { perform(.newTab) }
@@ -56,6 +59,7 @@ struct PaperApp: App {
         Settings {
             PaperSettingsView(browser: browser)
         }
+        .windowStyle(.hiddenTitleBar)
     }
 
     private func perform(_ action: PaletteAction) {

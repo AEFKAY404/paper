@@ -56,7 +56,7 @@ struct TabOverviewView: View {
         }
         .padding(28)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background(PaperSurfaceBackground.color)
         .onAppear {
             previews.present(browser: browser)
             Task { @MainActor in
