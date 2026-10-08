@@ -12,7 +12,7 @@ struct HandbookView: View {
                         .font(PaperTypography.eyebrow)
                         .tracking(2)
                         .foregroundStyle(.secondary)
-                    Text("The web, without the browser.")
+                    Text("Paper Handbook")
                         .font(PaperTypography.hero)
                         .fixedSize(horizontal: false, vertical: true)
                     Text("A quiet guide to moving through Paper.")
@@ -26,7 +26,6 @@ struct HandbookView: View {
                 section("Downloads", "When a page starts a download, Paper opens the macOS Save Panel. Choose a file location there. Paper does not yet show download progress or a downloads list.", shortcuts: [])
                 section("Settings", "Choose a search provider, restore open tabs, control custom gestures and feedback, or reduce decorative motion. History swipe changes apply to open tabs too.", shortcuts: [("Settings", "⌘,")])
                 section("Privacy", "Paper uses WebKit's default persistent website data store. Cookies and site data may persist. Paper does not currently include a private mode, content blocker, or custom tracking protection.", shortcuts: [])
-                section("About Paper", "The web, without the browser.", shortcuts: [])
                 Button("Replay the introduction") {
                     dismiss()
                     restartIntroduction()

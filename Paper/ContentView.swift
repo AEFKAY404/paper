@@ -22,7 +22,7 @@ struct ContentView: View {
 
             if let tab = browser.activeTab {
                 if tab.kind == .newTab {
-                    NewTabView(tabID: tab.id, searchEngine: selectedSearchEngine,
+                    NewTabView(tabID: tab.id,
                                mayFocus: !ui.isPaletteVisible && !ui.isOverviewVisible && onboarding.step != .search) { input in
                         browser.navigate(input, searchEngine: selectedSearchEngine)
                     }

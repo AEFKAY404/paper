@@ -101,10 +101,19 @@ struct TabOverviewView: View {
                 ZStack {
                     RoundedRectangle(cornerRadius: 11).fill(Color(nsColor: .controlBackgroundColor))
                     if tab.kind == .newTab {
-                        VStack(spacing: 4) {
-                            Text("Paper").font(PaperTypography.cardBrand)
-                            Text("The web, without the browser.")
-                                .font(PaperTypography.metadata).foregroundStyle(.secondary)
+                        VStack(spacing: 9) {
+                            HStack(spacing: 7) {
+                                Image(systemName: "magnifyingglass")
+                                Text("SEARCH or URL")
+                            }
+                            .font(PaperTypography.metadata)
+                            .foregroundStyle(PaperTypography.readingColor)
+                            .frame(maxWidth: 220, alignment: .leading)
+                            .padding(10)
+                            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+                            Text("Paper")
+                                .font(PaperTypography.smallBrand)
+                                .foregroundStyle(.secondary)
                         }
                     } else if let image = previews.previews[tab.id] {
                         Image(nsImage: image).resizable().scaledToFill()
