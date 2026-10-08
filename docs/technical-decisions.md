@@ -1,5 +1,9 @@
 # Technical decisions
 
+## 9 October 2026 — Audit uBlock, keep Paper's blocker unchanged
+
+The [feasibility audit](ublock-feasibility.md) found uBO Lite's compile-time/declarative separation useful as an architectural model, while its Safari WebExtension APIs are unavailable to Paper's embedded WKWebView. Paper should independently extend its Swift parser only for semantics that WebKit can execute reliably, then improve static cosmetics. The [Blocker V2 architecture](blocker-v2-architecture.md) is a staged proposal, not an implementation decision. No uBO code was copied; [licensing review](ublock-licensing.md) is required before any direct reuse. Generic scriptlets, response rewriting, exact blocker-match counts, and YouTube-specific mitigation remain unsupported.
+
 ## 7 October 2026 — WebKit is the primary macOS engine
 
 The native macOS product needs a working browser surface, persistent tabs, and unobtrusive interaction. WebKit meets the Phase 1A requirements and fits SwiftUI/AppKit directly. The CEF investigation exposed a custom application lifecycle, helper bundles, framework packaging, signing, and maintenance costs. Paper therefore uses WebKit. The CEF findings remain in [cef-feasibility.md](cef-feasibility.md) and [cef-lifecycle-blocker.md](cef-lifecycle-blocker.md) as superseded records.

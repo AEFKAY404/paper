@@ -1,5 +1,7 @@
 # Known limitations — Phase 2B
 
+- The 9 October [uBlock audit](ublock-feasibility.md) did not add blocking features. Safari uBO Lite's extension APIs are not available inside Paper's WKWebView, and the proposed [Blocker V2](blocker-v2-architecture.md) has no implementation or performance measurements. Current list caps, unsupported exception/scriptlet syntax, and YouTube video-ad limitations remain.
+
 - URL restoration reopens tabs and preserves their order and active index. It does not restore form state, per-tab back/forward history, scroll position, or in-memory JavaScript state after app relaunch.
 - Isolated-bundle XCTest UI scenarios now verify several native keyboard paths and new-tab focus. Webpage keyboard/mouse interaction and trackpad scrolling still need hands-on verification.
 - WebKit history swipes are enabled by default, and the preference now updates open sessions. Option-swipe tab switching remains opt-in and needs physical trackpad verification. App-local swipe events cannot prove behavior over every nested scroller, webpage drag target, Mission Control configuration, or fullscreen desktop gesture; use Control-Tab and Control-Shift-Tab if it conflicts.

@@ -2,6 +2,8 @@
 
 Phase 2C investigation, 9 October 2026. No runtime mitigation is enabled in Paper.
 
+The subsequent [uBlock feasibility audit](ublock-feasibility.md) recommends a staged [Blocker V2 proposal](blocker-v2-architecture.md): improve WebKit-native declarative rules and safe CSS first, and keep page-world runtime mitigations out of production until a separate evidence gate is met. This is a proposal, not a Phase 2C implementation or approval to alter Paper's current blocker. [Licensing implications](ublock-licensing.md) are tracked separately.
+
 Paper continues to use its existing `WKContentRuleList` rules, conservative EasyList/EasyPrivacy conversion, cosmetic CSS, global switch, and per-site bypass. [WebKit content rules](https://webkit.org/blog/3476/content-blockers-first-look/) act on resource requests and CSS selectors. They do not offer a supported way for Paper to rewrite the JSON body of YouTube's first-party player response or to observe exact per-rule matches. Paper's converter also limits network rules to third-party, non-document resources. This preserves ordinary playback but leaves first-party ad metadata outside its current network coverage.
 
 ## Rule compatibility reviewed
