@@ -13,3 +13,7 @@ SwiftUI `@main` and `WindowGroup` own the app lifecycle. A narrow `NSApplication
 ## Gestures and downloads
 
 WebKit provides native history swipes. Optional tab switching uses an explicit Option-modified discrete swipe and remains off by default to avoid claiming ordinary scrolling. Downloads use `WKDownloadDelegate` and `NSSavePanel`; the app has user-selected read/write sandbox entitlement. These paths need hands-on confirmation before Phase 1A sign-off.
+
+## 8 October 2026 — Safari-compatible desktop identity
+
+The default embedded WebKit UA caused Google to serve a compact Search layout in controlled signed-out tests. Adding only `applicationNameForUserAgent` produced the same layout. Adding the installed Safari's `Version` and `Safari` tokens to WebKit's actual engine and platform UA produced the modern desktop layout in the same WebKit harness. Paper therefore uses that identity plus its own version token for all new WebKit sessions, with explicit desktop content mode. The site override policy remains empty. This is centralized in the adapter so a future engine can identify itself independently. Paper does not globally spoof Chrome or synthesize Chromium APIs. See [web-compatibility.md](web-compatibility.md) for the measurements, comparison limits, and cross-site observations.

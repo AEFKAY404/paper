@@ -21,4 +21,6 @@ Phase 1B keeps navigation and tab state in `BrowserController`. The overview is 
 
 The app retains the original `ark.Paper` bundle identifier and App Sandbox. Outgoing network access and user-selected read/write access are enabled for browsing and Save Panel downloads.
 
+Phase 1B.1 centralizes desktop browser identity in `BrowserIdentity`, inside the WebKit adapter. The adapter obtains its own default WebKit UA, combines its engine token with the installed Safari version and Paper version, and sets the result before the session's first URL request. `SiteCompatibilityPolicy` is an empty extension point. `BrowserController`, SwiftUI overlays, gesture routing and tab persistence do not know about UA strings. New sessions receive the current identity; live sessions are not recreated when an app update changes it. See [web-compatibility.md](web-compatibility.md) for measured behavior and diagnostic commands.
+
 See [webkit-integration.md](webkit-integration.md) for adapter behavior and [engine-migration.md](engine-migration.md) for the migration record.

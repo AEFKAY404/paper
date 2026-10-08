@@ -15,10 +15,22 @@ final class WebKitSession: NSObject, BrowserSession, WKNavigationDelegate, WKUID
     private var observations: [NSKeyValueObservation] = []
     private var downloads: [WKDownload] = []
     private var closed = false
+    private let identity: BrowserIdentity
+    private var identityTask: Task<Void, Never>?
+    private var identityReady = false
+    private var standardUserAgent: String?
+    private var pendingURL: URL?
 
-    override init() {
+    override convenience init() {
+        self.init(websiteDataStore: .default())
+    }
+
+    init(websiteDataStore: WKWebsiteDataStore, identity: BrowserIdentity? = nil) {
+        let identity = identity ?? .shared
+        self.identity = identity
         let configuration = WKWebViewConfiguration()
-        configuration.websiteDataStore = .default()
+        configuration.websiteDataStore = websiteDataStore
+        identity.configure(configuration)
         webView = WKWebView(frame: .zero, configuration: configuration)
         super.init()
         webView.navigationDelegate = self
@@ -52,10 +64,26 @@ final class WebKitSession: NSObject, BrowserSession, WKNavigationDelegate, WKUID
                 }
             }
         ]
+        identityTask = Task { [weak self] in
+            guard let self else { return }
+            let userAgent = await identity.effectiveUserAgent(using: webView)
+            guard !closed else { return }
+            standardUserAgent = userAgent
+            if let userAgent { webView.customUserAgent = userAgent }
+            identityReady = true
+            if let pendingURL {
+                self.pendingURL = nil
+                load(pendingURL)
+            }
+        }
     }
 
     func load(_ url: URL) {
         guard !closed else { return }
+        guard identityReady else { pendingURL = url; return }
+        if let standardUserAgent {
+            webView.customUserAgent = identity.userAgent(for: url, defaultUA: standardUserAgent)
+        }
         webView.load(URLRequest(url: url))
     }
     func goBack() { if webView.canGoBack { webView.goBack() } }
@@ -80,6 +108,9 @@ final class WebKitSession: NSObject, BrowserSession, WKNavigationDelegate, WKUID
     func close() {
         guard !closed else { return }
         closed = true
+        identityTask?.cancel()
+        identityTask = nil
+        pendingURL = nil
         webView.stopLoading()
         observations.removeAll()
         webView.navigationDelegate = nil

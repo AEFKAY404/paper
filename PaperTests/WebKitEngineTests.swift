@@ -6,6 +6,44 @@ import WebKit
 
 @MainActor
 struct WebKitEngineTests {
+    @Test func browserIdentityFormattingAndPolicy() {
+        let identity = BrowserIdentity(applicationVersion: "1.0", safariVersion: "27.2")
+        let base = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Paper/1.0"
+        #expect(identity.applicationToken == "Paper/1.0")
+        #expect(identity.makeSafariCompatibleUserAgent(from: base) ==
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Safari/605.1.15 Paper/1.0")
+        #expect(identity.makeSafariCompatibleUserAgent(from: "Mozilla/5.0 Chrome/154") == nil)
+        #expect(!identity.compatibilityPolicy.rules.contains { $0.userAgentOverride?.contains("Chrome/") == true })
+        #expect(SiteCompatibilityPolicy.matches(host: "www.example.com", domain: "example.com"))
+        #expect(!SiteCompatibilityPolicy.matches(host: "notexample.com", domain: "example.com"))
+        let policy = SiteCompatibilityPolicy(rules: [
+            .init(domain: "example.com", userAgentOverride: "Example/Test", notes: "test fixture")
+        ])
+        #expect(policy.resolve(URL(string: "https://sub.example.com/path")!)?.userAgentOverride == "Example/Test")
+        #expect(policy.resolve(URL(string: "https://unrelated.org")!) == nil)
+    }
+
+    @Test func sessionsApplySameDesktopIdentityBeforeNavigation() async throws {
+        let first = WebKitSession(websiteDataStore: .nonPersistent())
+        let second = WebKitSession(websiteDataStore: .nonPersistent())
+        defer { first.close(); second.close() }
+        let target = try #require(URL(string: "data:text/html,%3Ctitle%3EIdentity%3C/title%3E"))
+        first.load(target)
+        second.load(target)
+        for _ in 0..<100 where first.webView.title != "Identity" || second.webView.title != "Identity" {
+            try await Task.sleep(for: .milliseconds(50))
+        }
+        let ua1 = try #require(first.webView.customUserAgent)
+        let ua2 = try #require(second.webView.customUserAgent)
+        #expect(ua1 == ua2)
+        #expect(ua1.contains("Version/"))
+        #expect(ua1.contains("Safari/"))
+        #expect(ua1.contains("Paper/1.0"))
+        #expect(!ua1.contains("Chrome/"))
+        #expect(try await first.webView.evaluateJavaScript("navigator.userAgent") as? String == ua1)
+        #expect(first.webView.configuration.defaultWebpagePreferences.preferredContentMode == .desktop)
+    }
+
     @Test func restoredTabsKeepOrderAndActiveURL() throws {
         let defaults = UserDefaults(suiteName: UUID().uuidString)!
         let store = SessionStore(defaults: defaults)
