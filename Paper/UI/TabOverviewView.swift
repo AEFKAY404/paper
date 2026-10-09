@@ -102,10 +102,7 @@ struct TabOverviewView: View {
                     RoundedRectangle(cornerRadius: 11).fill(Color(nsColor: .controlBackgroundColor))
                     if tab.kind == .newTab {
                         VStack(spacing: 9) {
-                            HStack(spacing: 7) {
-                                Image(systemName: "magnifyingglass")
-                                Text("SEARCH or URL")
-                            }
+                            Image(systemName: "magnifyingglass")
                             .font(PaperTypography.metadata)
                             .foregroundStyle(PaperTypography.readingColor)
                             .frame(maxWidth: 220, alignment: .leading)

@@ -10,7 +10,7 @@ struct NewTabView: View {
 
     var body: some View {
         VStack(spacing: 26) {
-            TextField("SEARCH or URL", text: $input)
+            TextField("", text: $input)
                 .textFieldStyle(.plain)
                 .font(PaperTypography.newTabInput)
                 .foregroundStyle(.primary)
