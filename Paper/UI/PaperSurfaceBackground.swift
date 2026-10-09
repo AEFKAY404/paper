@@ -24,8 +24,8 @@ enum PaperSurfaceBackground {
     }
 }
 
-/// A quiet desktop-backed surface for native new tabs. The opaque base prevents
-/// an old webpage from showing through while the active tab changes.
+/// A desktop-backed surface for native new tabs. The opaque base prevents an
+/// old webpage from showing through while the active tab changes.
 struct PaperNewTabSurface: View {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.colorScheme) private var colorScheme
@@ -35,7 +35,7 @@ struct PaperNewTabSurface: View {
             PaperSurfaceBackground.color
             if !reduceTransparency {
                 PaperWindowMaterial()
-                PaperSurfaceBackground.color.opacity(colorScheme == .dark ? 0.90 : 0.88)
+                PaperSurfaceBackground.color.opacity(colorScheme == .dark ? 0.72 : 0.68)
             }
         }
         .allowsHitTesting(false)
@@ -59,17 +59,22 @@ private struct PaperWindowMaterial: NSViewRepresentable {
 final class PaperTitleBarStyler: ObservableObject {
     private weak var window: NSWindow?
     private var color = PaperSurfaceBackground.nativeColor
+    private var translucent = false
 
     func attach(_ window: NSWindow?) {
         guard self.window !== window else { return }
         self.window = window
         PaperSurfaceBackground.configure(window)
-        window?.backgroundColor = color
+        window?.isOpaque = !translucent
+        window?.backgroundColor = translucent ? .clear : color
     }
 
-    func update(_ color: NSColor) {
+    func update(_ color: NSColor, translucent: Bool = false) {
         self.color = color
-        guard let window, window.backgroundColor != color else { return }
-        window.backgroundColor = color
+        self.translucent = translucent
+        guard let window else { return }
+        let background = translucent ? NSColor.clear : color
+        if window.isOpaque == translucent { window.isOpaque = !translucent }
+        if window.backgroundColor != background { window.backgroundColor = background }
     }
 }

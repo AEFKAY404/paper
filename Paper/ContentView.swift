@@ -12,6 +12,7 @@ struct ContentView: View {
     @AppStorage("paper.searchEngine") private var searchEngine = SearchEngine.google.rawValue
     @AppStorage(InteractionPreferences.reduceMotionKey) private var reduceDecorativeMotion = false
     @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.openSettings) private var openSettings
 
@@ -142,6 +143,7 @@ struct ContentView: View {
         .onChange(of: ui.isPrivacyVisible) { _, _ in updateTitleBar() }
         .onChange(of: onboarding.step) { _, _ in updateTitleBar() }
         .onChange(of: colorScheme) { _, _ in updateTitleBar() }
+        .onChange(of: reduceTransparency) { _, _ in updateTitleBar() }
         .onDisappear { inputMonitor.stop() }
     }
 
@@ -157,7 +159,8 @@ struct ContentView: View {
     }
 
     private func updateTitleBar() {
-        titleBar.update(activeSurfaceColor)
+        titleBar.update(activeSurfaceColor,
+                        translucent: browser.activeTab?.kind == .newTab && !reduceTransparency)
     }
 
     private var activeSurfaceColor: NSColor {
