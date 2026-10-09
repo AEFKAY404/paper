@@ -67,7 +67,13 @@ nonisolated struct CosmeticFilterRule: Codable, Hashable, Sendable {
     }
 }
 
-nonisolated struct ParsedFilterList: Sendable {
+nonisolated struct FilterParseTimings: Codable, Sendable {
+    var scanAndDeduplicate: TimeInterval = 0
+    var normalize: TimeInterval = 0
+    var rank: TimeInterval = 0
+}
+
+nonisolated struct ParsedFilterList: Codable, Sendable {
     var network: [NetworkFilterRule] = []
     var cosmetic: [CosmeticFilterRule] = []
     var networkExceptions: [NetworkFilterRule] = []
@@ -77,6 +83,7 @@ nonisolated struct ParsedFilterList: Sendable {
     var duplicateCount = 0
     var omittedForLimit = 0
     var totalLines = 0
+    var timings = FilterParseTimings()
     mutating func unsupported(_ reason: String) { unsupportedByReason[reason, default: 0] += 1 }
 }
 
@@ -86,6 +93,9 @@ enum FilterParser {
     nonisolated static let maxNetworkRulesPerSource = 10_000
     nonisolated static let maxCosmeticRulesPerSource = 4_000
     nonisolated static let maxGenericCosmeticRulesPerSource = 800
+    nonisolated static let maxCosmeticCandidatesPerSource = 24_000
+    nonisolated static let maxAdvancedDomainCosmeticsPerSource = 900
+    nonisolated static let maxAdvancedGenericCosmeticsPerSource = 100
     nonisolated private static let resourceMap: [String: [String]] = [
         "image": ["image"], "script": ["script"], "stylesheet": ["style-sheet"],
         "font": ["font"], "media": ["media"], "xmlhttprequest": ["raw", "fetch"],
@@ -95,8 +105,10 @@ enum FilterParser {
 
     nonisolated static func parse(_ text: String) -> ParsedFilterList {
         var result = ParsedFilterList()
+        let scanBegan = Date()
         var networkSet = Set<NetworkFilterRule>()
         var cosmeticSet = Set<CosmeticFilterRule>()
+        var cosmeticCandidates: [CosmeticFilterRule] = []
         var genericCosmeticCount = 0
         for raw in text.split(whereSeparator: \.isNewline) {
             result.totalLines += 1
@@ -126,11 +138,11 @@ enum FilterParser {
                     result.cosmeticExceptions.append(rule)
                     continue
                 }
-                if result.cosmetic.count >= maxCosmeticRulesPerSource ||
+                if cosmeticCandidates.count >= maxCosmeticCandidatesPerSource ||
                     (rule.domains.isEmpty && genericCosmeticCount >= maxGenericCosmeticRulesPerSource) {
                     result.omittedForLimit += 1
                 } else {
-                    result.cosmetic.append(rule)
+                    cosmeticCandidates.append(rule)
                     if rule.domains.isEmpty { genericCosmeticCount += 1 }
                 }
                 continue
@@ -149,30 +161,42 @@ enum FilterParser {
             if rule.isException { result.networkExceptions.append(rule) }
             else { result.network.append(rule) }
         }
+        result.timings.scanAndDeduplicate = Date().timeIntervalSince(scanBegan)
+        let normalizeBegan = Date()
         result.network = RuleNormalizer.applyExactExceptions(to: result.network,
                                                               exceptions: result.networkExceptions,
                                                               unsupported: &result.unsupportedByReason)
+        result.timings.normalize = Date().timeIntervalSince(normalizeBegan)
+        let rankBegan = Date()
         result.network = RuleNormalizer.rank(result.network)
         if result.network.count > maxNetworkRulesPerSource {
             result.omittedForLimit += result.network.count - maxNetworkRulesPerSource
             result.network = Array(result.network.prefix(maxNetworkRulesPerSource))
         }
+        let isCustomAd: (CosmeticFilterRule) -> Bool = {
+            !$0.domains.isEmpty && $0.selector.split(separator: "-").contains("ad") &&
+            $0.selector.range(of: "^[a-z][a-z0-9-]{2,79}$", options: .regularExpression) != nil
+        }
+        let isAdvanced: (CosmeticFilterRule) -> Bool = {
+            $0.selector.contains("[") || $0.selector.contains(":") || isCustomAd($0)
+        }
+        let customAds = Array(cosmeticCandidates.filter(isCustomAd).prefix(100))
+        let advancedDomain = cosmeticCandidates.filter { !$0.domains.isEmpty && isAdvanced($0) && !isCustomAd($0) }
+        let advancedGeneric = cosmeticCandidates.filter { $0.domains.isEmpty && isAdvanced($0) }
+        let ordinary = cosmeticCandidates.filter { !isAdvanced($0) }
+        result.cosmetic = customAds +
+            Array(advancedDomain.prefix(maxAdvancedDomainCosmeticsPerSource - customAds.count)) +
+            Array(advancedGeneric.prefix(maxAdvancedGenericCosmeticsPerSource))
+        result.cosmetic.append(contentsOf: ordinary.prefix(max(0, maxCosmeticRulesPerSource - result.cosmetic.count)))
+        result.omittedForLimit += cosmeticCandidates.count - result.cosmetic.count
         result.cosmetic.append(contentsOf: result.cosmeticExceptions)
+        result.timings.rank = Date().timeIntervalSince(rankBegan)
         return result
     }
 
     nonisolated static func cosmeticRule(domains: String, selector: String,
                                         isException: Bool = false) -> CosmeticFilterRule? {
         let selector = selector.trimmingCharacters(in: .whitespaces)
-        guard !selector.isEmpty, selector.count <= 200,
-              selector.contains(".") || selector.contains("#"),
-              selector.range(of: "^[A-Za-z0-9_ .#>+~:()=-]+$", options: .regularExpression) != nil,
-              !selector.contains(":not"), !selector.contains(":style"),
-              !selector.contains(":remove"), !selector.contains(":matches") else { return nil }
-        if selector.contains(":has") {
-            guard selector.range(of: ":has\\([.#][A-Za-z0-9_-]+\\)", options: .regularExpression) != nil,
-                  selector.components(separatedBy: ":has(").count == 2 else { return nil }
-        }
         var included: [String] = []
         var excluded: [String] = []
         for domain in domains.split(separator: ",").map(String.init) {
@@ -185,7 +209,7 @@ enum FilterParser {
                 included.append(domain.lowercased())
             }
         }
-        guard !isException || !included.isEmpty else { return nil }
+        guard StaticCosmeticSelector.isSafe(selector, domainScoped: !included.isEmpty) else { return nil }
         return CosmeticFilterRule(selector: selector, domains: included.sorted(),
                                   excludedDomains: excluded.sorted(), isException: isException)
     }
@@ -355,7 +379,7 @@ enum RuleNormalizer {
 }
 
 enum RulePartitioner {
-    struct Partition {
+    nonisolated struct Partition: Sendable {
         let highestPriority: Int
         let lowestPriority: Int
         let rules: [NetworkFilterRule]
@@ -363,10 +387,11 @@ enum RulePartitioner {
 
     static let maxRulesPerPartition = 1_000
 
-    static func partitions(for rankedRules: [NetworkFilterRule]) -> [Partition] {
+    static func partitions(for rankedRules: [NetworkFilterRule], size: Int = maxRulesPerPartition) -> [Partition] {
+        precondition(size > 0)
         var result: [Partition] = []
-        for start in stride(from: 0, to: rankedRules.count, by: maxRulesPerPartition) {
-            let chunk = Array(rankedRules[start..<min(start + maxRulesPerPartition, rankedRules.count)])
+        for start in stride(from: 0, to: rankedRules.count, by: size) {
+            let chunk = Array(rankedRules[start..<min(start + size, rankedRules.count)])
             result.append(Partition(highestPriority: RuleNormalizer.priority(chunk[0]),
                                     lowestPriority: RuleNormalizer.priority(chunk[chunk.count - 1]),
                                     rules: chunk))
@@ -376,7 +401,7 @@ enum RulePartitioner {
 }
 
 enum RuleCompiler {
-    static func json(for rules: [NetworkFilterRule]) throws -> String {
+    nonisolated static func json(for rules: [NetworkFilterRule]) throws -> String {
         let entries: [[String: Any]] = try rules.map { rule in
             guard rule.includedDomains.isEmpty || rule.excludedDomains.isEmpty else {
                 throw NSError(domain: "PaperBlocker", code: 1,

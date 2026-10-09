@@ -1,0 +1,48 @@
+{
+  "attachedLists" : 40,
+  "cacheLoadSeconds" : 0.034651041030883789,
+  "cacheSeconds" : 0.038645029067993164,
+  "coldSeconds" : 2.4075089693069458,
+  "compileSeconds" : {
+    "easylist" : 0.62648594379425049,
+    "easyprivacy" : 0.84028315544128418
+  },
+  "diagnostics" : "cache hits: 0\nEasyList 202610081602 8943a8d79183 <https:\/\/easylist.to\/easylist\/easylist.txt>: 80621 raw, 10000 network, 4306 cosmetic, 543 parsed network exceptions, 11 deduplicated, 276 ignored, 4908 unsupported [cosmetic selector=1764,network syntax=252,procedural or scriptlet cosmetic=287,regex form=1011,unapplied network exception=538,unsupported modifier=1056], 61115 omitted; 20 partitions [priority7-2=1,priority2-2=2,priority2-1=1,priority1-1=5,priority1-0=1,priority0-0=10]; parse 0.000s, compile 0.626s; load 0.003s, prepared 0.073s, scan+dedup 0.000s, normalize 0.000s, rank 0.000s, partition 0.000s, fingerprint 0.052s, JSON 0.098s\/2092863 bytes, WebKit 0.626s, store 0.029s, reused 0; activated 2026-10-09T18:18:03Z, checked 2026-10-09T18:18:02Z\nEasyPrivacy 202610081602 cdbbf4895591 <https:\/\/easylist.to\/easylist\/easyprivacy.txt>: 57052 raw, 10000 network, 2 cosmetic, 822 parsed network exceptions, 2 deduplicated, 772 ignored, 4514 unsupported [cosmetic selector=5,network syntax=331,redirect=28,regex form=3071,scriptlet=28,unapplied network exception=792,unsupported modifier=259], 41732 omitted; 20 partitions [priority7-2=1,priority2-2=8,priority2-0=1,priority0-0=10]; parse 0.000s, compile 0.840s; load 0.003s, prepared 0.105s, scan+dedup 0.000s, normalize 0.000s, rank 0.000s, partition 0.001s, fingerprint 0.066s, JSON 0.117s\/2302230 bytes, WebKit 0.840s, store 0.040s, reused 0; activated 2026-10-09T18:18:04Z, checked 2026-10-09T18:18:03Z",
+  "initializationSeconds" : 2.4075049161911011,
+  "parseSeconds" : {
+    "easylist" : 0,
+    "easyprivacy" : 0
+  },
+  "stages" : {
+    "easylist" : {
+      "cacheStore" : 0.028934240341186523,
+      "fingerprint" : 0.051593780517578125,
+      "jsonBytes" : 2092863,
+      "normalize" : 0,
+      "partition" : 0.00034093856811523438,
+      "preparedCacheHit" : true,
+      "preparedRead" : 0.073141932487487793,
+      "rank" : 0,
+      "reusedPartitions" : 0,
+      "scanAndDeduplicate" : 0,
+      "serialize" : 0.098094940185546875,
+      "sourceLoad" : 0.0033199787139892578,
+      "webKitCompile" : 0.62648594379425049
+    },
+    "easyprivacy" : {
+      "cacheStore" : 0.039830923080444336,
+      "fingerprint" : 0.065992832183837891,
+      "jsonBytes" : 2302230,
+      "normalize" : 0,
+      "partition" : 0.00071799755096435547,
+      "preparedCacheHit" : true,
+      "preparedRead" : 0.10509192943572998,
+      "rank" : 0,
+      "reusedPartitions" : 0,
+      "scanAndDeduplicate" : 0,
+      "serialize" : 0.11669814586639404,
+      "sourceLoad" : 0.0034649372100830078,
+      "webKitCompile" : 0.84028315544128418
+    }
+  }
+}

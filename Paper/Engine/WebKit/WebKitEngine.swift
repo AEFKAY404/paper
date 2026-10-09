@@ -331,14 +331,14 @@ final class WebKitSession: NSObject, BrowserSession, WKNavigationDelegate, WKUID
                let cosmeticHost,
                let script = CosmeticFilterEngine.script(for: blocker.cosmeticRules,
                                                        disabledDomains: privacyMode == .private ? [] : blocker.policy.disabledForDomains,
-                                                       host: cosmeticHost) {
+                                                       host: cosmeticHost, versionKey: blocker.cosmeticCacheKey) {
                 controller.addUserScript(script)
             }
             configuredBlockerRevision = blocker.revision
             configuredCosmeticHost = cosmeticHost
         }
         applyBlocker(for: url ?? webView.url)
-        if !allowsBlocking(webView.url, blocker: blocker) || !blocker.cosmeticEnabled {
+        if webView.url != nil && (!allowsBlocking(webView.url, blocker: blocker) || !blocker.cosmeticEnabled) {
             webView.evaluateJavaScript("document.getElementById('paper-cosmetic')?.remove()", completionHandler: nil)
         }
     }

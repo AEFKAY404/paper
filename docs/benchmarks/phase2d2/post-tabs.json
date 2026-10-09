@@ -1,0 +1,54 @@
+[
+  {
+    "networkOnlyCreateMs" : 5.8360099792480469,
+    "networkOnlyLoadMs" : 89.043974876403809,
+    "networkOnlyRSSBytes" : 262144,
+    "offCreateMs" : 5.6560039520263672,
+    "offLoadMs" : 88.968992233276367,
+    "offRSSBytes" : 98304,
+    "onCreateMs" : 6.0770511627197266,
+    "onLoadMs" : 87.671995162963867,
+    "onRSSBytes" : 98304,
+    "repetitions" : 3,
+    "tabs" : 1
+  },
+  {
+    "networkOnlyCreateMs" : 18.83995532989502,
+    "networkOnlyLoadMs" : 274.39296245574951,
+    "networkOnlyRSSBytes" : 49152,
+    "offCreateMs" : 20.461082458496094,
+    "offLoadMs" : 275.36797523498535,
+    "offRSSBytes" : 212992,
+    "onCreateMs" : 21.053910255432129,
+    "onLoadMs" : 277.74310111999512,
+    "onRSSBytes" : 393216,
+    "repetitions" : 3,
+    "tabs" : 5
+  },
+  {
+    "networkOnlyCreateMs" : 30.212998390197754,
+    "networkOnlyLoadMs" : 478.73997688293457,
+    "networkOnlyRSSBytes" : 917504,
+    "offCreateMs" : 30.047059059143066,
+    "offLoadMs" : 451.03597640991211,
+    "offRSSBytes" : 442368,
+    "onCreateMs" : 29.132962226867676,
+    "onLoadMs" : 479.78103160858154,
+    "onRSSBytes" : 360448,
+    "repetitions" : 3,
+    "tabs" : 10
+  },
+  {
+    "networkOnlyCreateMs" : 59.186935424804688,
+    "networkOnlyLoadMs" : 1150.0029563903809,
+    "networkOnlyRSSBytes" : 311296,
+    "offCreateMs" : 59.752106666564941,
+    "offLoadMs" : 1080.0529718399048,
+    "offRSSBytes" : 491520,
+    "onCreateMs" : 60.761928558349609,
+    "onLoadMs" : 1116.5509223937988,
+    "onRSSBytes" : 458752,
+    "repetitions" : 3,
+    "tabs" : 20
+  }
+]

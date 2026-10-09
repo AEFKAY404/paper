@@ -26,6 +26,7 @@ private final class CosmeticCountHandler: NSObject, WKScriptMessageHandler {
 }
 
 @MainActor
+@Suite(.serialized)
 struct ContentBlockerTests {
     @Test func parserClassifiesAndDeduplicatesRules() throws {
         let parsed = FilterParser.parse("""
@@ -161,6 +162,22 @@ struct ContentBlockerTests {
                 "compileSeconds": initial.compileDurations,
                 "parseSeconds": initial.parseDurations,
                 "attachedLists": initial.rules.count,
+                "initializationSeconds": initial.initializationDuration,
+                "cacheLoadSeconds": restored.cachedLoadDuration,
+                "stages": initial.stageProfiles.mapValues { profile -> [String: Any] in
+                    ["sourceLoad": profile.sourceLoad,
+                     "preparedRead": profile.preparedRead ?? 0,
+                     "scanAndDeduplicate": profile.scanAndDeduplicate,
+                     "normalize": profile.normalize, "rank": profile.rank,
+                     "partition": profile.partition,
+                     "fingerprint": profile.fingerprint ?? 0,
+                     "serialize": profile.serialize,
+                     "webKitCompile": profile.webKitCompile,
+                     "cacheStore": profile.cacheStore,
+                     "jsonBytes": profile.jsonBytes,
+                     "reusedPartitions": profile.reusedPartitions,
+                     "preparedCacheHit": profile.preparedCacheHit]
+                },
                 "diagnostics": initial.diagnostics
             ]
             let data = try JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys])

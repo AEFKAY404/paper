@@ -27,6 +27,7 @@ struct ContentBlockerLiveSiteTests {
             ("wikipedia", "https://en.wikipedia.org/wiki/WebKit"),
             ("verge", "https://www.theverge.com/"),
             ("github", "https://github.com/"),
+            ("github-login", "https://github.com/login"),
             ("microsoft", "https://www.microsoft.com/en-us/"),
             ("amazon", "https://www.amazon.com/"),
             ("twitch", "https://www.twitch.tv/")
@@ -39,8 +40,12 @@ struct ContentBlockerLiveSiteTests {
             window.contentView = session.webView
             window.orderFront(nil)
             var error: String?
+            var cosmeticMatchesAtLoad = 0
             session.onEvent = { event in
                 if case .navigationFailed(let message) = event { error = message }
+                if case .blockerStatistics(let statistics) = event {
+                    cosmeticMatchesAtLoad = statistics.cosmeticMatchesAtLoad
+                }
             }
             let began = Date()
             session.load(URL(string: address)!)
@@ -60,9 +65,12 @@ struct ContentBlockerLiveSiteTests {
                 try png.write(to: output.appendingPathComponent(name + ".png"))
             }
             let title = session.webView.title ?? ""
+            let cosmeticRuleCount = (try? await session.webView.evaluateJavaScript(
+                "(document.getElementById('paper-cosmetic')?.textContent.match(/display:none!important/g) || []).length")) as? Int ?? 0
             records.append(["site": name, "url": address, "title": title,
                             "error": error ?? "", "seconds": seconds,
-                            "snapshot": image != nil])
+                            "snapshot": image != nil, "cosmeticRules": cosmeticRuleCount,
+                            "cosmeticMatchesAtLoad": cosmeticMatchesAtLoad])
             print("PAPER_LIVE_SITE \(name) title=\(title) error=\(error ?? "none") seconds=\(String(format: "%.2f", seconds)) snapshot=\(image != nil)")
             session.close()
             window.close()

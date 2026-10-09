@@ -1,5 +1,9 @@
 # Paper performance and verification log
 
+## Phase 2D.2 blocker performance — 9 October 2026
+
+The [Phase 2D.2 performance report](blocker-performance.md) records the baseline stage profile, versioned prepared/JSON cache, a rotated 500-versus-1,000-rule partition comparison, and three-run 1/5/10/20-tab local fixtures. The measured baseline sample spent 4.647 of 5.909 seconds parsing; prepared bundled artifacts eliminated that parse on fresh setup. The integrated partition comparison favored the retained 1,000-rule size, with 1.447-second median cold setup and 29.6 ms median cached reopen across three rounds. These are XCTest process timings, not app launch or first paint. Final signed build and UI/live reruns could not be performed after Xcode became unavailable on the host; see [known limitations](known-limitations.md).
+
 ## Phase 2D blocker comparison — 9 October 2026
 
 On the same Apple Silicon MacBook Air (macOS 27.2 beta, Xcode 27 beta, Debug), the checkpoint `phase2d-baseline-365004d` was built in a detached temporary checkout and compared with Blocker V2 Stage 1 using the same bundled EasyList/EasyPrivacy snapshots. Each setup row is one isolated `ContentBlockerTests` suite run with a new compiled-rule store, followed by a cache reopen. They are **samples, not medians**. Both suites passed. Stage 1 has no network access during the bundled compile portion; browsing is not gated on compilation, though first-run requests before completion may be unblocked.

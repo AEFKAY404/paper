@@ -1,0 +1,10 @@
+{
+  "checkpoint": "07d9b9b",
+  "conditions": "One isolated local HTML fixture run before Stage 2 changes; process reuse and order may affect timings",
+  "rows": [
+    {"tabs": 1, "offCreateMs": 4.7359466552734375, "onCreateMs": 6.309986114501953, "offLoadMs": 88.8139009475708, "onLoadMs": 86.32099628448486},
+    {"tabs": 5, "offCreateMs": 19.224047660827637, "onCreateMs": 19.285082817077637, "offLoadMs": 271.34406566619873, "onLoadMs": 274.05095100402832},
+    {"tabs": 10, "offCreateMs": 35.035014152526855, "onCreateMs": 30.200958251953125, "offLoadMs": 477.55706310272217, "onLoadMs": 547.3459959030151},
+    {"tabs": 20, "offCreateMs": 56.54799938201904, "onCreateMs": 57.63506889343262, "offLoadMs": 1056.3669204711914, "onLoadMs": 1160.9869003295898}
+  ]
+}

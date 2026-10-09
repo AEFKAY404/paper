@@ -1,0 +1,15 @@
+{
+  "checkpoint": "07d9b9b",
+  "conditions": "One focused ContentBlockerTests suite run, fresh compiled store, Debug, same macOS beta host; tests within the suite were not serialized",
+  "coldSeconds": 5.9091490507125854,
+  "cacheSeconds": 0.12243795394897461,
+  "parseSeconds": {
+    "easylist": 2.5411550998687744,
+    "easyprivacy": 2.1057260036468506
+  },
+  "compileSeconds": {
+    "easylist": 0.5158119201660156,
+    "easyprivacy": 0.7065728902816772
+  },
+  "attachedLists": 20
+}
