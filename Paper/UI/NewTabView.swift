@@ -32,7 +32,6 @@ struct NewTabView: View {
         }
         .padding(32)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(PaperSurfaceBackground.color)
         .task(id: "\(tabID)-\(mayFocus)") {
             guard mayFocus else { focused = false; return }
             try? await Task.sleep(for: .milliseconds(80))

@@ -21,7 +21,11 @@ struct ContentView: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            Color(nsColor: activeSurfaceColor).ignoresSafeArea()
+            if browser.activeTab?.kind == .newTab {
+                PaperNewTabSurface().ignoresSafeArea()
+            } else {
+                Color(nsColor: activeSurfaceColor).ignoresSafeArea()
+            }
 
             if let tab = browser.activeTab {
                 if tab.kind == .newTab {

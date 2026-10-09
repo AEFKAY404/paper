@@ -24,6 +24,37 @@ enum PaperSurfaceBackground {
     }
 }
 
+/// A quiet desktop-backed surface for native new tabs. The opaque base prevents
+/// an old webpage from showing through while the active tab changes.
+struct PaperNewTabSurface: View {
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        ZStack {
+            PaperSurfaceBackground.color
+            if !reduceTransparency {
+                PaperWindowMaterial()
+                PaperSurfaceBackground.color.opacity(colorScheme == .dark ? 0.90 : 0.88)
+            }
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+}
+
+private struct PaperWindowMaterial: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = .underWindowBackground
+        view.blendingMode = .behindWindow
+        view.state = .followsWindowActiveState
+        return view
+    }
+
+    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {}
+}
+
 @MainActor
 final class PaperTitleBarStyler: ObservableObject {
     private weak var window: NSWindow?
