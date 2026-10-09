@@ -23,6 +23,24 @@ struct BlockerPolicy {
 @MainActor
 final class ContentBlockerEngine: ObservableObject {
     private struct SourceRecord: Codable {
+        let ruleVersion: Int
+        let hash: String
+        let identifiers: [String]
+        let networkCount: Int
+        let rawLineCount: Int
+        let ignoredCount: Int
+        let duplicateCount: Int
+        let exceptionCount: Int
+        let partitionCounts: [String: Int]
+        let cosmetic: [CosmeticFilterRule]
+        let unsupportedByReason: [String: Int]
+        let omittedForLimit: Int
+        let upstreamVersion: String?
+        let sourceLastModified: String?
+        let compiledAt: Date
+        var lastChecked: Date
+    }
+    private struct LegacySourceRecord: Codable {
         let hash: String
         let identifiers: [String]
         let networkCount: Int
@@ -33,13 +51,27 @@ final class ContentBlockerEngine: ObservableObject {
         let sourceLastModified: String?
         let compiledAt: Date
         var lastChecked: Date
+
+        var migrated: SourceRecord {
+            SourceRecord(ruleVersion: 3, hash: hash, identifiers: identifiers,
+                         networkCount: networkCount, rawLineCount: 0, ignoredCount: 0,
+                         duplicateCount: 0, exceptionCount: 0,
+                         partitionCounts: ["legacy": identifiers.count], cosmetic: cosmetic,
+                         unsupportedByReason: unsupportedByReason, omittedForLimit: omittedForLimit,
+                         upstreamVersion: upstreamVersion, sourceLastModified: sourceLastModified,
+                         compiledAt: compiledAt, lastChecked: lastChecked)
+        }
     }
     private struct Manifest: Codable {
         let version: Int
         var sources: [String: SourceRecord]
     }
+    private struct LegacyManifest: Codable {
+        let version: Int
+        let sources: [String: LegacySourceRecord]
+    }
 
-    static let cacheVersion = 3
+    static let cacheVersion = 4
     static let updateInterval: TimeInterval = 4 * 24 * 60 * 60
     private let directory: URL
     private let store: WKContentRuleListStore
@@ -49,6 +81,7 @@ final class ContentBlockerEngine: ObservableObject {
     private(set) var lastError: String?
     private(set) var cacheHits = 0
     private(set) var compileDurations: [String: TimeInterval] = [:]
+    private(set) var parseDurations: [String: TimeInterval] = [:]
     @Published private(set) var revision = 0
     var onChange: (() -> Void)?
     var policy: BlockerPolicy {
@@ -74,8 +107,13 @@ final class ContentBlockerEngine: ObservableObject {
         let sources = FilterSource.defaults.map { source in
             guard let record = records[source.id] else { return "\(source.title): unavailable" }
             let unsupported = record.unsupportedByReason.values.reduce(0, +)
-            let duration = compileDurations[source.id].map { String(format: "%.3fs", $0) } ?? "cache"
-            return "\(source.title) \(record.upstreamVersion ?? "unknown") \(record.hash.prefix(12)): \(record.networkCount) network, \(record.cosmetic.count) cosmetic, \(unsupported) unsupported, \(record.omittedForLimit) omitted; \(record.identifiers.count) chunks; \(duration)"
+            let reasons = record.unsupportedByReason.sorted { $0.key < $1.key }
+                .map { "\($0.key)=\($0.value)" }.joined(separator: ",")
+            let compilation = compileDurations[source.id].map { String(format: "%.3fs", $0) } ?? "cache"
+            let parsing = parseDurations[source.id].map { String(format: "%.3fs", $0) } ?? "cache"
+            let partitions = record.partitionCounts.sorted { $0.key > $1.key }
+                .map { "\($0.key)=\($0.value)" }.joined(separator: ",")
+            return "\(source.title) \(record.upstreamVersion ?? "unknown") \(record.hash.prefix(12)) <\(source.url.absoluteString)>: \(record.rawLineCount) raw, \(record.networkCount) network, \(record.cosmetic.count) cosmetic, \(record.exceptionCount) parsed network exceptions, \(record.duplicateCount) deduplicated, \(record.ignoredCount) ignored, \(unsupported) unsupported [\(reasons)], \(record.omittedForLimit) omitted; \(record.identifiers.count) partitions [\(partitions)]; parse \(parsing), compile \(compilation); activated \(record.compiledAt.ISO8601Format()), checked \(record.lastChecked.ISO8601Format())"
         }.joined(separator: "\n")
         return "cache hits: \(cacheHits)\n" + sources + (lastError.map { "\nerror: " + $0 } ?? "")
     }
@@ -110,7 +148,7 @@ final class ContentBlockerEngine: ObservableObject {
 
     func start() async {
         await loadCachedRules()
-        for source in FilterSource.defaults where compiledBySource[source.id] == nil {
+        for source in FilterSource.defaults where records[source.id]?.ruleVersion != Self.cacheVersion {
             guard let url = Bundle.main.url(forResource: source.id, withExtension: "txt"),
                   let text = try? String(contentsOf: url, encoding: .utf8) else {
                 lastError = "Bundled \(source.title) rules unavailable"
@@ -164,11 +202,16 @@ final class ContentBlockerEngine: ObservableObject {
 
     private func loadCachedRules() async {
         let url = directory.appendingPathComponent("manifest.json")
-        guard let data = try? Data(contentsOf: url),
-              let manifest = try? JSONDecoder().decode(Manifest.self, from: data),
-              manifest.version == Self.cacheVersion else { return }
+        guard let data = try? Data(contentsOf: url) else { return }
+        let decoder = JSONDecoder()
+        let manifest = try? decoder.decode(Manifest.self, from: data)
+        let legacy = try? decoder.decode(LegacyManifest.self, from: data)
+        let sourceRecords: [String: SourceRecord]
+        if let manifest, manifest.version == Self.cacheVersion { sourceRecords = manifest.sources }
+        else if let legacy, legacy.version == 3 { sourceRecords = legacy.sources.mapValues(\.migrated) }
+        else { return }
         for source in FilterSource.defaults {
-            guard let record = manifest.sources[source.id] else { continue }
+            guard let record = sourceRecords[source.id] else { continue }
             var lists: [WKContentRuleList] = []
             for identifier in record.identifiers {
                 guard let list = try? await store.contentRuleList(forIdentifier: identifier) else {
@@ -188,18 +231,20 @@ final class ContentBlockerEngine: ObservableObject {
     func install(_ text: String, for source: FilterSource, checkedAt: Date) async {
         let data = Data(text.utf8)
         let hash = Self.hash(data)
-        if records[source.id]?.hash == hash, compiledBySource[source.id] != nil { return }
+        if records[source.id]?.hash == hash,
+           records[source.id]?.ruleVersion == Self.cacheVersion,
+           compiledBySource[source.id] != nil { return }
+        let parseBegan = Date()
         let parsed = await Task.detached(priority: .utility) { FilterParser.parse(text) }.value
+        parseDurations[source.id] = Date().timeIntervalSince(parseBegan)
         guard !parsed.network.isEmpty else { lastError = "No supported \(source.title) network rules"; return }
-        let chunks = stride(from: 0, to: parsed.network.count, by: 1_000).map {
-            Array(parsed.network[$0..<min($0 + 1_000, parsed.network.count)])
-        }
+        let partitions = RulePartitioner.partitions(for: parsed.network)
         var staged: [WKContentRuleList] = []
         let began = Date()
         do {
-            for (index, chunk) in chunks.enumerated() {
+            for (index, partition) in partitions.enumerated() {
                 let identifier = "paper.v\(Self.cacheVersion).\(source.id).\(hash.prefix(12)).\(index)"
-                let json = try RuleCompiler.json(for: chunk)
+                let json = try RuleCompiler.json(for: partition.rules)
                 guard let list = try await store.compileContentRuleList(forIdentifier: identifier, encodedContentRuleList: json) else {
                     throw BlockerError.compilationReturnedNoList
                 }
@@ -212,8 +257,17 @@ final class ContentBlockerEngine: ObservableObject {
         }
         compileDurations[source.id] = Date().timeIntervalSince(began)
         let old = records[source.id]
-        records[source.id] = SourceRecord(hash: hash, identifiers: staged.map(\.identifier),
-                                          networkCount: parsed.network.count, cosmetic: parsed.cosmetic,
+        records[source.id] = SourceRecord(ruleVersion: Self.cacheVersion, hash: hash,
+                                          identifiers: staged.map(\.identifier),
+                                          networkCount: parsed.network.count,
+                                          rawLineCount: parsed.totalLines, ignoredCount: parsed.ignored,
+                                          duplicateCount: parsed.duplicateCount,
+                                          exceptionCount: parsed.networkExceptions.count,
+                                          partitionCounts: Dictionary(grouping: partitions, by: {
+                                              "priority\($0.highestPriority)-\($0.lowestPriority)"
+                                          })
+                                              .mapValues(\.count),
+                                          cosmetic: parsed.cosmetic,
                                           unsupportedByReason: parsed.unsupportedByReason,
                                           omittedForLimit: parsed.omittedForLimit,
                                           upstreamVersion: Self.header("Version", in: text),
@@ -222,7 +276,7 @@ final class ContentBlockerEngine: ObservableObject {
         compiledBySource[source.id] = staged
         saveManifest()
         publishChange()
-        if let old, old.hash != hash {
+        if let old, old.hash != hash || old.ruleVersion != Self.cacheVersion {
             for identifier in old.identifiers { try? await store.removeContentRuleList(forIdentifier: identifier) }
         }
     }

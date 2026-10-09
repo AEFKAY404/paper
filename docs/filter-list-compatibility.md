@@ -1,19 +1,23 @@
-# Filter-list compatibility
+# Filter-list compatibility — Blocker V2 Stage 1
 
-Paper supports a deliberately narrow, reviewed subset of EasyList-style syntax. See [content-blocker.md](content-blocker.md) for source versions and measured coverage.
+Paper independently converts a safe EasyList/EasyPrivacy subset into WebKit rules. This is partial compatibility, not uBO parity. See [stage 1 behavior and evidence](blocker-v2-stage1.md).
 
-| Input | Handling |
+| Input class | Stage 1 handling |
 | --- | --- |
-| `||ads.example.com^` | Convert a validated host anchor to a WebKit URL regular expression; apply to third-party, non-document resources |
-| `$script,image,stylesheet,font,media,xmlhttprequest,other,popup` | Map supported resource options to WebKit resource types; unsupported modifiers reject the whole rule |
-| `$domain=example.com` or `$domain=~example.com` | Map to `if-domain` or `unless-domain`; mixed positive and negative sets are rejected |
-| `##.ad`, `news.example##.sponsored` | Accept simple selector syntax, inject local CSS through a controlled `WKUserScript` |
-| Duplicate supported rules | Remove duplicates while preserving source order |
-| `@@` and `#@#` exceptions | Unsupported; Paper does not misrepresent their cross-list ordering semantics |
-| Scriptlets, procedural selectors, redirect, removeparam, HTML filtering, complex regex and unknown modifiers | Unsupported and counted |
+| `||ads.example.com^` | Host-anchored HTTP(S) rule; broad hosts remain third-party by default |
+| `||ads.example.com/banner*.js$script` | Bounded path and at most two wildcards, compiled to WebKit's supported URL-regex subset |
+| `|https://cdn.example.com/ad.js|` | Exact scheme/host/path anchors, with start/end regex anchors |
+| `^` separator | A validated non-alphanumeric separator; end-of-host uses WebKit-compatible path/query delimiter syntax |
+| `$first-party`, `$third-party`, `~first-party`, `~third-party` | Explicit load type; contradictory combinations rejected |
+| `$script,image,stylesheet,font,media,popup` | Native WebKit resource types |
+| `$xmlhttprequest`, `$other` | XHR/fetch maps to `raw` and `fetch`; `other` stays distinct from `raw` |
+| `$domain=site.example` or `$domain=~site.example` | WebKit `if-domain` or `unless-domain`, including subdomains; mixed positive/negative sets rejected because WebKit forbids using both fields |
+| `@@` | Only an exact-pattern, same-source block/exception pair with matching resource types and an equal or broader exception party scope can be resolved before chunking; unmatched cases counted |
+| `##.ad`, `site.example##.ad`, `site.example,~other.example##.ad` | Validated local CSS with host scope and exclusion; generated declaration is `display:none!important` |
+| `site.example#@#.ad` | Exact-selector cosmetic exception, applied across the approved sources |
+| `div:has(.ad)` | Narrow native-CSS subset, bounded by per-page budgets |
+| Scriptlets, JSON pruning, response rewrite, redirect, unsupported regex/modifiers/procedures | Rejected and counted; never executed as remote code |
 
-Network filters always exclude the main `document` resource and are third-party only. This is conservative compared with the original subscriptions and may miss first-party advertising or trackers. `WKContentRuleList` applies rules inside WebKit; Paper does not observe individual rule matches. The supported URL expression was checked by compiling it with the installed WebKit version. WebKit's regex format is a [strict subset of JavaScript regular expressions](https://webkit.org/blog/3476/content-blockers-first-look/), so the parser rejects rather than guesses at unsupported forms.
+Accepted network rules are deduplicated and ranked deterministically under an operational 10,000-per-source cap. Priority partitions contain at most 1,000 rules; source-level compilation and activation remain atomic. Cosmetic output is selected for the current host and limited to 500 selectors/32 KiB. Full list-wide CSS is not injected into every page.
 
-Cosmetic scripts contain locally generated selector data and fixed Paper code only. They inject CSS at document end, and CSS naturally applies to later matching elements. No remote JavaScript or full-DOM mutation loop is used. Pages with restrictive styling or complex selectors may remain visibly unfiltered. Basic selectors are not a substitute for uBlock Origin's procedural rules.
-
-EasyList and EasyPrivacy include exceptions and advanced features that this converter does not implement. The rule cap further reduces coverage. The Settings per-site bypass is the recovery path for breakage; changing it may require reloading the current page. YouTube video ads are not expected to be removed reliably by these rules, and Paper contains no YouTube-specific script workaround.
+The filter source snapshots remain EasyList and EasyPrivacy. [Licensing notes](ublock-licensing.md) apply. WKWebView does not expose individual content-rule match counts, and Paper does not promise YouTube video-ad removal. See [known limitations](known-limitations.md).

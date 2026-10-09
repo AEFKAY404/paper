@@ -1,0 +1,82 @@
+[
+  {
+    "error" : "",
+    "seconds" : 2.3073810338973999,
+    "site" : "google",
+    "snapshot" : true,
+    "title" : "paper browser - Google Search",
+    "url" : "https:\/\/www.google.com\/search?q=paper+browser"
+  },
+  {
+    "error" : "",
+    "seconds" : 2.3212859630584717,
+    "site" : "youtube",
+    "snapshot" : true,
+    "title" : "YouTube",
+    "url" : "https:\/\/www.youtube.com\/"
+  },
+  {
+    "error" : "",
+    "seconds" : 2.2101390361785889,
+    "site" : "reddit",
+    "snapshot" : true,
+    "title" : "Reddit - The heart of the internet",
+    "url" : "https:\/\/www.reddit.com\/"
+  },
+  {
+    "error" : "",
+    "seconds" : 2.3301700353622437,
+    "site" : "guardian",
+    "snapshot" : true,
+    "title" : "Latest news, sport and opinion from the Guardian",
+    "url" : "https:\/\/www.theguardian.com\/international"
+  },
+  {
+    "error" : "",
+    "seconds" : 2.3216599225997925,
+    "site" : "wikipedia",
+    "snapshot" : true,
+    "title" : "WebKit - Wikipedia",
+    "url" : "https:\/\/en.wikipedia.org\/wiki\/WebKit"
+  },
+  {
+    "error" : "",
+    "seconds" : 2.2133200168609619,
+    "site" : "verge",
+    "snapshot" : true,
+    "title" : "The Verge",
+    "url" : "https:\/\/www.theverge.com\/"
+  },
+  {
+    "error" : "",
+    "seconds" : 2.1221789121627808,
+    "site" : "github",
+    "snapshot" : true,
+    "title" : "GitHub · Change is constant. GitHub keeps you ahead. · GitHub · GitHub",
+    "url" : "https:\/\/github.com\/"
+  },
+  {
+    "error" : "",
+    "seconds" : 2.8493779897689819,
+    "site" : "microsoft",
+    "snapshot" : true,
+    "title" : "Microsoft – AI, Cloud, Productivity, Computing, Gaming & Apps",
+    "url" : "https:\/\/www.microsoft.com\/en-us\/"
+  },
+  {
+    "error" : "",
+    "seconds" : 2.9300030469894409,
+    "site" : "amazon",
+    "snapshot" : true,
+    "title" : "Amazon.com. Spend less. Smile more.",
+    "url" : "https:\/\/www.amazon.com\/"
+  },
+  {
+    "error" : "",
+    "seconds" : 2.2370659112930298,
+    "site" : "twitch",
+    "snapshot" : true,
+    "title" : "Twitch",
+    "url" : "https:\/\/www.twitch.tv\/"
+  }
+]

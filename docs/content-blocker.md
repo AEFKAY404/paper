@@ -1,5 +1,7 @@
 # Phase 2A content blocker
 
+This page records the historical Phase 2A baseline. The production [Blocker V2 Stage 1 upgrade](blocker-v2-stage1.md) expands declarative coverage and changes the operational network cap to 10,000 per source; the Phase 2A counts and timings below remain baseline measurements, not current totals.
+
 Paper uses WebKit's `WKContentRuleListStore` and `WKContentRuleList` for request blocking. The privacy subsystem lives in `Paper/Privacy`; `WebKitEngine` only attaches its compiled lists and cosmetic script to sessions. Paper does not proxy traffic or send visited URLs to a filtering service.
 
 ## Sources and updates

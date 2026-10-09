@@ -42,13 +42,15 @@ struct ContentBlockerTests {
         #expect(parsed.network.count == 2)
         #expect(parsed.cosmetic.count == 2)
         #expect(parsed.duplicateCount == 1)
-        #expect(parsed.unsupportedByReason["exception"] == 1)
+        #expect(parsed.networkExceptions.count == 1)
+        #expect(parsed.unsupportedByReason["unapplied network exception"] == 1)
         #expect(parsed.unsupportedByReason["procedural or scriptlet cosmetic"] == 1)
-        #expect(parsed.unsupportedByReason["network syntax or modifier"] == 1)
+        #expect(parsed.unsupportedByReason["redirect"] == 1)
         let json = try RuleCompiler.json(for: parsed.network)
         let entries = try #require(JSONSerialization.jsonObject(with: Data(json.utf8)) as? [[String: Any]])
         #expect(entries.count == 2)
-        let trigger = try #require(entries[0]["trigger"] as? [String: Any])
+        let trigger = try #require(entries.compactMap { $0["trigger"] as? [String: Any] }
+            .first { ($0["resource-type"] as? [String]) == ["image", "script"] })
         #expect(trigger["load-type"] as? [String] == ["third-party"])
         #expect(trigger["resource-type"] as? [String] == ["image", "script"])
     }
@@ -75,9 +77,10 @@ struct ContentBlockerTests {
     @Test func cosmeticScriptContainsSelectorsWithoutRemoteCode() throws {
         let rules = [try #require(FilterParser.cosmeticRule(domains: "", selector: ".ad")),
                      try #require(FilterParser.cosmeticRule(domains: "news.example", selector: ".sponsored"))]
-        let script = try #require(CosmeticFilterEngine.script(for: rules, disabledDomains: ["broken.example"]))
+        let script = try #require(CosmeticFilterEngine.script(for: rules, disabledDomains: ["broken.example"],
+                                                              host: "news.example"))
         #expect(script.source.contains(".ad"))
-        #expect(script.source.contains("broken.example"))
+        #expect(script.source.contains("news.example"))
         #expect(script.source.contains("display:none!important"))
         #expect(FilterParser.cosmeticRule(domains: "", selector: "div:has(script)") == nil)
     }
@@ -115,7 +118,8 @@ struct ContentBlockerTests {
         let controller = WKUserContentController()
         let counter = CosmeticCountHandler()
         controller.add(counter, name: CosmeticFilterEngine.messageName)
-        controller.addUserScript(try #require(CosmeticFilterEngine.script(for: [rule], disabledDomains: [])))
+        controller.addUserScript(try #require(CosmeticFilterEngine.script(for: [rule], disabledDomains: [],
+                                                                         host: "news.example")))
         let configuration = WKWebViewConfiguration()
         configuration.userContentController = controller
         let view = WKWebView(frame: CGRect(x: 0, y: 0, width: 600, height: 400), configuration: configuration)
@@ -151,6 +155,17 @@ struct ContentBlockerTests {
         print(String(format: "PAPER_BLOCKER_BENCHMARK cold=%.3fs cache=%.3fs easylist_compile=%.3fs easyprivacy_compile=%.3fs\n%@",
                      coldSeconds, cacheSeconds, initial.compileDurations["easylist"] ?? -1,
                      initial.compileDurations["easyprivacy"] ?? -1, initial.diagnostics))
+        if FileManager.default.fileExists(atPath: "/private/tmp/paper-run-blocker-benchmark") {
+            let report: [String: Any] = [
+                "coldSeconds": coldSeconds, "cacheSeconds": cacheSeconds,
+                "compileSeconds": initial.compileDurations,
+                "parseSeconds": initial.parseDurations,
+                "attachedLists": initial.rules.count,
+                "diagnostics": initial.diagnostics
+            ]
+            let data = try JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys])
+            try data.write(to: URL(fileURLWithPath: "/private/tmp/paper-phase2d-v2-metrics.json"), options: .atomic)
+        }
     }
 
     @Test func newSessionReceivesRulesAndBypassRemovesThem() async throws {
@@ -176,7 +191,24 @@ struct ContentBlockerTests {
         let privateSession = WebKitSession(websiteDataStore: .nonPersistent(), blocker: blocker,
                                            privacyMode: .private)
         defer { privateSession.close() }
+        #expect(blocker.policy.enabled)
+        #expect(privateSession.installedBlockerIdentifiers.count == blocker.rules.count)
         privateSession.load(URL(string: "https://" + domain)!)
+        for _ in 0..<100 where privateSession.installedBlockerIdentifiers.isEmpty {
+            try await Task.sleep(for: .milliseconds(30))
+        }
+        #expect(privateSession.installedBlockerIdentifiers.count == blocker.rules.count)
+        blocker.setEnabled(false)
+        privateSession.updateBlocker()
+        for _ in 0..<100 where !privateSession.installedBlockerIdentifiers.isEmpty {
+            try await Task.sleep(for: .milliseconds(30))
+        }
+        #expect(privateSession.installedBlockerIdentifiers.isEmpty)
+        blocker.setEnabled(true)
+        privateSession.updateBlocker()
+        for _ in 0..<100 where privateSession.installedBlockerIdentifiers.isEmpty {
+            try await Task.sleep(for: .milliseconds(30))
+        }
         #expect(privateSession.installedBlockerIdentifiers.count == blocker.rules.count)
     }
 }

@@ -12,13 +12,37 @@ struct ContentBlockerBenchmarkTests {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
         let blocker = ContentBlockerEngine(directory: directory)
+        let wasEnabled = blocker.policy.enabled
+        blocker.setEnabled(true)
+        defer { blocker.setEnabled(wasEnabled) }
         await blocker.start()
+        #expect(blocker.rules.count >= 2)
+        let cosmeticBegan = Date()
+        let selected = CosmeticFilterEngine.selectors(for: blocker.cosmeticRules,
+                                                       host: "bench.example", disabledDomains: [])
+        let cosmeticScript = CosmeticFilterEngine.script(for: blocker.cosmeticRules,
+                                                          disabledDomains: [], host: "bench.example")
+        let cosmeticGenerationMs = Date().timeIntervalSince(cosmeticBegan) * 1_000
+        var measurements: [[String: Any]] = []
         for count in [1, 5, 10, 20] {
             let off = try await measure(count: count, blocker: nil)
             let on = try await measure(count: count, blocker: blocker)
+            measurements.append(["tabs": count, "offCreateMs": off.creationMs,
+                                 "onCreateMs": on.creationMs, "offLoadMs": off.loadMs,
+                                 "onLoadMs": on.loadMs, "offRSSBytes": off.rssDeltaBytes,
+                                 "onRSSBytes": on.rssDeltaBytes])
             print(String(format: "PAPER_BLOCKER_TABS count=%d off_create=%.1fms on_create=%.1fms off_load=%.1fms on_load=%.1fms off_rss=%lld on_rss=%lld",
                          count, off.creationMs, on.creationMs, off.loadMs, on.loadMs,
                          off.rssDeltaBytes, on.rssDeltaBytes))
+        }
+        if FileManager.default.fileExists(atPath: "/private/tmp/paper-run-blocker-benchmark") {
+            let data = try JSONSerialization.data(withJSONObject: measurements, options: [.prettyPrinted, .sortedKeys])
+            try data.write(to: URL(fileURLWithPath: "/private/tmp/paper-phase2d-v2-tabs.json"), options: .atomic)
+            let cosmetic: [String: Any] = ["generationMs": cosmeticGenerationMs,
+                                           "selectedSelectors": selected.count,
+                                           "scriptBytes": cosmeticScript?.source.utf8.count ?? 0]
+            let cosmeticData = try JSONSerialization.data(withJSONObject: cosmetic, options: [.prettyPrinted, .sortedKeys])
+            try cosmeticData.write(to: URL(fileURLWithPath: "/private/tmp/paper-phase2d-v2-cosmetic.json"), options: .atomic)
         }
     }
 

@@ -1,4 +1,34 @@
-# Phase 1A performance and verification log
+# Paper performance and verification log
+
+## Phase 2D blocker comparison — 9 October 2026
+
+On the same Apple Silicon MacBook Air (macOS 27.2 beta, Xcode 27 beta, Debug), the checkpoint `phase2d-baseline-365004d` was built in a detached temporary checkout and compared with Blocker V2 Stage 1 using the same bundled EasyList/EasyPrivacy snapshots. Each setup row is one isolated `ContentBlockerTests` suite run with a new compiled-rule store, followed by a cache reopen. They are **samples, not medians**. Both suites passed. Stage 1 has no network access during the bundled compile portion; browsing is not gated on compilation, though first-run requests before completion may be unblocked.
+
+| Measure | Phase 2A checkpoint | V2 Stage 1 | Observed change |
+| --- | ---: | ---: | ---: |
+| Accepted network rules compiled | 16,000 | 20,000 | +4,000 (+25%) |
+| Attached content rule lists | 16 | 20 | +4 |
+| Unsupported syntax lines | 17,635 | 10,833 | −6,802; classification changed, so this is not all newly blocked traffic |
+| Cold bundled setup | 2.044 s | 2.994 s | +0.950 s |
+| Cached setup | 0.0059 s | 0.0137 s | +0.0078 s |
+| WebKit compile time, both sources | 0.308 s | 0.616 s | +0.308 s |
+
+V2 parsing took 1.325 s for EasyList and 1.036 s for EasyPrivacy in that run; the checkpoint did not record parse time separately. V2 retained 4,000 EasyList hide rules plus 286 parsed cosmetic exceptions and 2 EasyPrivacy cosmetics. Parsing accepted more URL forms, but the operational cap still omits tens of thousands of supported candidates: 59,741 EasyList and 41,732 EasyPrivacy entries in this snapshot. The limits are Paper budgets, not WebKit maxima.
+
+An offscreen local HTML fixture then created and loaded fresh `WebKitSession` groups with the blocker explicitly enabled. Values are medians of **three runs** for each tab count; each group measures all its tabs, not one tab. Both versions used their own temporary compiled cache and the same HTML. “Create” includes configuring the WebKit sessions and attaching rules; “load” ends when every page title appears. These tests do not measure first paint, live network loading, idle CPU, or separate WebContent process memory.
+
+| Tabs | Create checkpoint → V2 | Change | Local load checkpoint → V2 | Change |
+| ---: | ---: | ---: | ---: | ---: |
+| 1 | 17.9 → 7.6 ms | −10.3 ms | 81.3 → 84.8 ms | +3.5 ms |
+| 5 | 46.0 → 19.0 ms | −27.0 ms | 140.1 → 146.2 ms | +6.1 ms |
+| 10 | 78.5 → 33.1 ms | −45.4 ms | 287.7 → 289.5 ms | +1.8 ms |
+| 20 | 134.0 → 44.8 ms | −89.2 ms | 590.8 → 555.6 ms | −35.2 ms |
+
+The V2 creation times were lower in this harness despite more lists. Off-mode controls and process reuse varied, so these samples do **not** establish that V2 makes real tab creation faster. App-process RSS deltas also fluctuated and omit WebContent processes; no memory conclusion is drawn. One V2 host-specific cosmetic generation sample selected 500 selectors, produced an 8,746-byte script, and took 3.14 ms. Actual style recalculation cost was not isolated; the local load figures include any cosmetic work.
+
+The signed, automated live smoke loaded ten public sites with title, no navigation error, and snapshot in one run; [raw records and captures](screenshots/phase2d/live-sites.json) accompany the [Stage 1 report](blocker-v2-stage1.md). A signed-out [YouTube public video](screenshots/phase2d/youtube-playback.json) reached normal playback in three seconds and accepted a seek in the recorded run. This is a non-regression sample, not proof of reliable video-ad blocking. Interactive sign-in, purchases, fullscreen, long playback, manual app use, and repeatable live on/off page-load comparison remain unmeasured.
+
+## Phase 1A baseline — 7 October 2026
 
 Host: Apple Silicon Mac, macOS 27.2, Xcode 27 beta, Debug build, 7 October 2026. Figures are not release-build benchmarks and should not be compared with CEF.
 

@@ -1,5 +1,7 @@
 # Privacy controls — Phase 2B
 
+Blocker V2 Stage 1 expands native declarative rule coverage while retaining these controls. The global switch, cosmetic switch, per-site exception, and private-tab policy behave as before. Source and diagnostics details are in [blocker-v2-stage1.md](blocker-v2-stage1.md); the Privacy sheet continues to avoid unsupported exact blocked-request counts.
+
 Paper's Privacy sheet is temporary. Open it from the command palette (`Privacy` or `Site Privacy`) or the Privacy menu. It names the active tab's mode, global protection state, registrable site, cosmetic filtering state, site data, and permissions. The sheet reports “Blocked where supported”; WebKit does not provide exact `WKContentRuleList` match counts.
 
 The global blocker and cosmetic filter switches are in Settings. For a standard tab, “Protect this site” stores a local exception for its effective registrable domain and reloads the page to apply the new rule set. “Off globally” is shown separately from a site exception. Private tabs use the global blocker and deliberately ignore saved site exceptions.

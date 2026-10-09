@@ -1,6 +1,6 @@
 # Blocker V2 architecture proposal
 
-9 October 2026. **Proposal only.** No production implementation or rollout is approved by this document. The current [Phase 2A blocker](content-blocker.md) remains the baseline.
+9 October 2026 architectural proposal. **Stage 1 is now implemented** as documented in [blocker-v2-stage1.md](blocker-v2-stage1.md). Later procedural or runtime stages remain proposals; no scriptlet or YouTube mitigation shipped. The historical [Phase 2A blocker](content-blocker.md) is the comparison baseline.
 
 ```text
 FilterSourceManager (signed/bundled sources, hashes, license manifest)

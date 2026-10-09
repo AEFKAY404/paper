@@ -4,21 +4,47 @@ import WebKit
 enum CosmeticFilterEngine {
     static let messageName = "paperCosmeticCount"
 
-    static func script(for rules: [CosmeticFilterRule], disabledDomains: Set<String>) -> WKUserScript? {
+    static let maxSelectorsPerPage = 500
+    static let maxCSSBytes = 32_000
+
+    static func selectors(for rules: [CosmeticFilterRule], host: String,
+                          disabledDomains: Set<String>) -> [String] {
+        let host = host.lowercased()
+        let matches: (String) -> Bool = { host == $0 || host.hasSuffix("." + $0) }
+        guard !disabledDomains.contains(where: matches) else { return [] }
+        let applicable = rules.filter { rule in
+            (rule.domains.isEmpty || rule.domains.contains(where: matches)) &&
+            !rule.excludedDomains.contains(where: matches)
+        }
+        let exceptions = Set(applicable.filter(\.isException).map(\.selector))
+        let hides = applicable.filter { !$0.isException && !exceptions.contains($0.selector) }
+        let prioritized = hides.filter { !$0.domains.isEmpty } + hides.filter(\.domains.isEmpty)
+        var result: [String] = []
+        var seen: Set<String> = []
+        var bytes = 0
+        for rule in prioritized {
+            guard seen.insert(rule.selector).inserted else { continue }
+            let cost = rule.selector.utf8.count + 25
+            if result.count >= maxSelectorsPerPage || bytes + cost > maxCSSBytes { break }
+            result.append(rule.selector)
+            bytes += cost
+        }
+        return result
+    }
+
+    static func script(for rules: [CosmeticFilterRule], disabledDomains: Set<String>,
+                       host: String) -> WKUserScript? {
         guard !rules.isEmpty else { return nil }
-        struct Entry: Encodable { let selector: String; let domains: [String] }
-        let entries = rules.map { Entry(selector: $0.selector, domains: $0.domains) }
-        guard let data = try? JSONEncoder().encode(entries),
+        let selected = selectors(for: rules, host: host, disabledDomains: disabledDomains)
+        guard !selected.isEmpty,
+              let data = try? JSONEncoder().encode(selected),
               let json = String(data: data, encoding: .utf8),
-              let bypassData = try? JSONEncoder().encode(Array(disabledDomains)),
-              let bypassJSON = String(data: bypassData, encoding: .utf8) else { return nil }
+              let hostData = try? JSONEncoder().encode(host.lowercased()),
+              let hostJSON = String(data: hostData, encoding: .utf8) else { return nil }
         let source = """
         (() => {
-          const host = location.hostname.toLowerCase();
-          const matches = domain => host === domain || host.endsWith('.' + domain);
-          if ((\(bypassJSON)).some(matches)) return;
-          const selectors = (\(json)).filter(rule => !rule.domains.length || rule.domains.some(matches))
-                                      .map(rule => rule.selector);
+          if (location.hostname.toLowerCase() !== \(hostJSON)) return;
+          const selectors = \(json);
           if (!selectors.length) return;
           const style = document.createElement('style');
           style.id = 'paper-cosmetic';

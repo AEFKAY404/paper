@@ -65,6 +65,7 @@ final class WebKitSession: NSObject, BrowserSession, WKNavigationDelegate, WKUID
     private var installedBlockerRules: [WKContentRuleList] = []
     var installedBlockerIdentifiers: [String] { installedBlockerRules.map(\.identifier) }
     private var configuredBlockerRevision = -1
+    private var configuredCosmeticHost: String?
     private var statistics = BlockerStatistics()
 
     // Only solid, opaque computed CSS colors are useful for a native title bar.
@@ -154,6 +155,7 @@ final class WebKitSession: NSObject, BrowserSession, WKNavigationDelegate, WKUID
     func load(_ url: URL) {
         guard !closed else { return }
         guard identityReady else { pendingURL = url; return }
+        updateBlocker(for: url)
         applyBlocker(for: url)
         if let standardUserAgent {
             webView.customUserAgent = identity.userAgent(for: url, defaultUA: standardUserAgent)
@@ -300,6 +302,7 @@ final class WebKitSession: NSObject, BrowserSession, WKNavigationDelegate, WKUID
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
                  decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
         if navigationAction.targetFrame?.isMainFrame == true {
+            updateBlocker(for: navigationAction.request.url)
             applyBlocker(for: navigationAction.request.url)
         }
         decisionHandler(navigationAction.shouldPerformDownload ? .download : .allow)
@@ -316,21 +319,25 @@ final class WebKitSession: NSObject, BrowserSession, WKNavigationDelegate, WKUID
         onEvent?(.blockerStatistics(statistics))
     }
 
-    func updateBlocker() {
+    func updateBlocker(for url: URL? = nil) {
         guard let blocker, !closed else { return }
         let controller = webView.configuration.userContentController
-        if configuredBlockerRevision != blocker.revision {
+        let cosmeticHost = (url ?? webView.url)?.host?.lowercased()
+        if configuredBlockerRevision != blocker.revision || configuredCosmeticHost != cosmeticHost {
             controller.removeScriptMessageHandler(forName: CosmeticFilterEngine.messageName)
             controller.removeAllUserScripts()
             controller.add(self, name: CosmeticFilterEngine.messageName)
             if blocker.policy.enabled && blocker.cosmeticEnabled,
+               let cosmeticHost,
                let script = CosmeticFilterEngine.script(for: blocker.cosmeticRules,
-                                                       disabledDomains: privacyMode == .private ? [] : blocker.policy.disabledForDomains) {
+                                                       disabledDomains: privacyMode == .private ? [] : blocker.policy.disabledForDomains,
+                                                       host: cosmeticHost) {
                 controller.addUserScript(script)
             }
             configuredBlockerRevision = blocker.revision
+            configuredCosmeticHost = cosmeticHost
         }
-        applyBlocker(for: webView.url)
+        applyBlocker(for: url ?? webView.url)
         if !allowsBlocking(webView.url, blocker: blocker) || !blocker.cosmeticEnabled {
             webView.evaluateJavaScript("document.getElementById('paper-cosmetic')?.remove()", completionHandler: nil)
         }
