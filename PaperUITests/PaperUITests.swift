@@ -179,6 +179,7 @@ final class PaperUITests: XCTestCase {
         for _ in 0..<20 where app.windows.count < 2 { Thread.sleep(forTimeInterval: 0.1) }
         XCTAssertGreaterThanOrEqual(app.windows.count, 2)
         let settingsWindow = app.windows["Paper Settings"]
+        XCTAssertTrue(app.sliders["paper.settings.newTabTransparency"].waitForExistence(timeout: 5))
         let settings = XCTAttachment(screenshot: settingsWindow.exists
                                      ? settingsWindow.screenshot() : app.screenshot())
         settings.name = "Paper typography settings"

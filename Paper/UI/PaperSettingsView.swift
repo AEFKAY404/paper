@@ -5,7 +5,10 @@ struct PaperSettingsView: View {
     @ObservedObject var blocker: ContentBlockerEngine
     @ObservedObject private var permissions = SitePermissionStore.shared
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @AppStorage("paper.searchEngine") private var searchEngine = SearchEngine.google.rawValue
+    @AppStorage(PaperSurfaceBackground.transparencyKey)
+    private var newTabTransparency = PaperSurfaceBackground.defaultTransparency
     @AppStorage("paper.restoreSession") private var restoreSession = true
     @AppStorage("paper.historyGestures") private var historyGestures = true
     @AppStorage(InteractionPreferences.customGesturesKey) private var customGestures = false
@@ -26,6 +29,23 @@ struct PaperSettingsView: View {
                     }
                 }
                 Toggle("Restore open tabs at launch", isOn: $restoreSession)
+            }
+            Section("Appearance") {
+                HStack {
+                    Slider(value: $newTabTransparency, in: 0...100, step: 1) {
+                        Text("New tab transparency")
+                    }
+                        .accessibilityIdentifier("paper.settings.newTabTransparency")
+                        .accessibilityValue("\(Int(newTabTransparency)) percent")
+                    Text("\(Int(newTabTransparency))%")
+                        .monospacedDigit()
+                        .frame(width: 44, alignment: .trailing)
+                }
+                Text(reduceTransparency
+                     ? "macOS Reduce Transparency is on, so new tabs use a solid background."
+                     : "0% is solid Paper; 100% uses the native blurred material.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
             }
             Section("Interaction") {
                 Toggle("Swipe to navigate history", isOn: $historyGestures)

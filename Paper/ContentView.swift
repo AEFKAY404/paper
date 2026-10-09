@@ -10,6 +10,8 @@ struct ContentView: View {
     @StateObject private var previews = TabPreviewStore()
     @AppStorage("paper.restoreSession") private var restoreSession = true
     @AppStorage("paper.searchEngine") private var searchEngine = SearchEngine.google.rawValue
+    @AppStorage(PaperSurfaceBackground.transparencyKey)
+    private var newTabTransparency = PaperSurfaceBackground.defaultTransparency
     @AppStorage(InteractionPreferences.reduceMotionKey) private var reduceDecorativeMotion = false
     @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
@@ -144,6 +146,7 @@ struct ContentView: View {
         .onChange(of: onboarding.step) { _, _ in updateTitleBar() }
         .onChange(of: colorScheme) { _, _ in updateTitleBar() }
         .onChange(of: reduceTransparency) { _, _ in updateTitleBar() }
+        .onChange(of: newTabTransparency) { _, _ in updateTitleBar() }
         .onDisappear { inputMonitor.stop() }
     }
 
@@ -160,7 +163,8 @@ struct ContentView: View {
 
     private func updateTitleBar() {
         titleBar.update(activeSurfaceColor,
-                        translucent: browser.activeTab?.kind == .newTab && !reduceTransparency)
+                        translucent: browser.activeTab?.kind == .newTab && !reduceTransparency &&
+                            PaperSurfaceBackground.materialFraction(for: newTabTransparency) > 0)
     }
 
     private var activeSurfaceColor: NSColor {

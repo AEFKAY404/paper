@@ -3,8 +3,14 @@ import Combine
 import SwiftUI
 
 enum PaperSurfaceBackground {
+    nonisolated static let transparencyKey = "paper.newTabTransparency"
+    nonisolated static let defaultTransparency = 30.0
     static var nativeColor: NSColor { .windowBackgroundColor }
     static var color: Color { Color(nsColor: nativeColor) }
+
+    nonisolated static func materialFraction(for percentage: Double) -> Double {
+        min(100, max(0, percentage)) / 100
+    }
 
     static func resolvedNativeColor(for scheme: ColorScheme) -> NSColor {
         let appearance = NSAppearance(named: scheme == .dark ? .darkAqua : .aqua)!
@@ -28,14 +34,15 @@ enum PaperSurfaceBackground {
 /// old webpage from showing through while the active tab changes.
 struct PaperNewTabSurface: View {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-    @Environment(\.colorScheme) private var colorScheme
+    @AppStorage(PaperSurfaceBackground.transparencyKey)
+    private var transparency = PaperSurfaceBackground.defaultTransparency
 
     var body: some View {
         ZStack {
             PaperSurfaceBackground.color
-            if !reduceTransparency {
+            if !reduceTransparency && PaperSurfaceBackground.materialFraction(for: transparency) > 0 {
                 PaperWindowMaterial()
-                PaperSurfaceBackground.color.opacity(colorScheme == .dark ? 0.72 : 0.68)
+                PaperSurfaceBackground.color.opacity(1 - PaperSurfaceBackground.materialFraction(for: transparency))
             }
         }
         .allowsHitTesting(false)
