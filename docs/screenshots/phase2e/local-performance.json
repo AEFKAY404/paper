@@ -1,0 +1,34 @@
+[
+  {
+    "ads" : 1,
+    "budgetExceeded" : 0,
+    "replaced" : 1,
+    "scanned" : 1,
+    "scriptMs" : 2,
+    "wallMs" : 173.85804653167725
+  },
+  {
+    "ads" : 5,
+    "budgetExceeded" : 0,
+    "replaced" : 5,
+    "scanned" : 5,
+    "scriptMs" : 2,
+    "wallMs" : 70.556044578552246
+  },
+  {
+    "ads" : 10,
+    "budgetExceeded" : 0,
+    "replaced" : 10,
+    "scanned" : 10,
+    "scriptMs" : 3,
+    "wallMs" : 70.25301456451416
+  },
+  {
+    "ads" : 20,
+    "budgetExceeded" : 0,
+    "replaced" : 20,
+    "scanned" : 20,
+    "scriptMs" : 3,
+    "wallMs" : 82.054018974304199
+  }
+]

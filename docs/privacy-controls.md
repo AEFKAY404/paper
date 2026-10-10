@@ -1,5 +1,7 @@
 # Privacy controls — Phase 2B
 
+Phase 2E adds a “Visual ad masking” state and a measured count of replaced regions, when nonzero, to the Privacy sheet. It follows the existing global blocker and per-site exception; private tabs continue to ignore saved exceptions. Popups use the existing origin-scoped Ask/Allow/Block choice with the [popup policy](popup-policy.md). See [visual blocking](visual-blocking.md) for detection and false-positive limits.
+
 Blocker V2 Stage 1 expands native declarative rule coverage while retaining these controls. The global switch, cosmetic switch, per-site exception, and private-tab policy behave as before. Source and diagnostics details are in [blocker-v2-stage1.md](blocker-v2-stage1.md); the Privacy sheet continues to avoid unsupported exact blocked-request counts.
 
 Paper's Privacy sheet is temporary. Open it from the command palette (`Privacy` or `Site Privacy`) or the Privacy menu. It names the active tab's mode, global protection state, registrable site, cosmetic filtering state, site data, and permissions. The sheet reports “Blocked where supported”; WebKit does not provide exact `WKContentRuleList` match counts.

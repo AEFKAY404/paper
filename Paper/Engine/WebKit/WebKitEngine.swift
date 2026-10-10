@@ -67,6 +67,7 @@ final class WebKitSession: NSObject, BrowserSession, WKNavigationDelegate, WKUID
     private var configuredBlockerRevision = -1
     private var configuredCosmeticHost: String?
     private var statistics = BlockerStatistics()
+    private let popupPolicy = PopupPolicy()
 
     // Only solid, opaque computed CSS colors are useful for a native title bar.
     // Root takes precedence; body supplies the common transparent-root case.
@@ -219,6 +220,7 @@ final class WebKitSession: NSObject, BrowserSession, WKNavigationDelegate, WKUID
         webView.navigationDelegate = nil
         webView.uiDelegate = nil
         webView.configuration.userContentController.removeScriptMessageHandler(forName: CosmeticFilterEngine.messageName)
+        webView.configuration.userContentController.removeScriptMessageHandler(forName: VisualBlockerEngine.messageName)
         downloads.forEach { $0.cancel() }
         downloads.removeAll()
         onEvent = nil
@@ -247,6 +249,8 @@ final class WebKitSession: NSObject, BrowserSession, WKNavigationDelegate, WKUID
         navigationRevision += 1
         surfaceColorTask?.cancel()
         statistics.cosmeticMatchesAtLoad = 0
+        statistics.visualRegionsReplaced = 0
+        statistics.visualRegionsCollapsed = 0
         onEvent?(.blockerStatistics(statistics))
     }
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
@@ -263,11 +267,19 @@ final class WebKitSession: NSObject, BrowserSession, WKNavigationDelegate, WKUID
 
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration,
                  for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
-        guard let url = navigationAction.request.url else { return nil }
         let site = SiteIdentity.origin(for: webView.url) ?? "This site"
-        SitePermissionStore.shared.decide([.popups], site: site, privateTab: privacyMode == .private,
-                                          window: webView.window) { [weak self] allowed in
-            if allowed { self?.onEvent?(.openNewTab(url)) }
+        let choice: SitePermissionChoice = privacyMode == .private ? .ask : SitePermissionStore.shared.choice(.popups, for: site)
+        let disposition = popupPolicy.decide(choice: choice, navigationType: navigationAction.navigationType,
+                                              url: navigationAction.request.url, site: site)
+        switch disposition {
+        case .allow:
+            if let url = navigationAction.request.url { onEvent?(.openNewTab(url)) }
+        case .ask:
+            SitePermissionStore.shared.decide([.popups], site: site, privateTab: privacyMode == .private,
+                                              window: webView.window) { [weak self] allowed in
+                if allowed, let url = navigationAction.request.url { self?.onEvent?(.openNewTab(url)) }
+            }
+        case .block: break
         }
         return nil
     }
@@ -309,6 +321,19 @@ final class WebKitSession: NSObject, BrowserSession, WKNavigationDelegate, WKUID
     }
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        if message.name == VisualBlockerEngine.messageName,
+           message.frameInfo.isMainFrame, message.webView === webView,
+           let values = message.body as? [String: Any],
+           let replaced = values["replaced"] as? NSNumber,
+           let collapsed = values["collapsed"] as? NSNumber {
+            statistics.visualRegionsReplaced = min(VisualBlockerEngine.maximumOverlaysPerPage, max(0, replaced.intValue))
+            statistics.visualRegionsCollapsed = min(statistics.visualRegionsReplaced, max(0, collapsed.intValue))
+            if ProcessInfo.processInfo.environment["PAPER_DIAGNOSTICS"] == "1" {
+                NSLog("Paper visual blocker: %@", String(describing: values))
+            }
+            onEvent?(.blockerStatistics(statistics))
+            return
+        }
         guard message.name == CosmeticFilterEngine.messageName,
               message.frameInfo.isMainFrame, message.webView === webView,
               let count = message.body as? NSNumber else { return }
@@ -325,8 +350,10 @@ final class WebKitSession: NSObject, BrowserSession, WKNavigationDelegate, WKUID
         let cosmeticHost = (url ?? webView.url)?.host?.lowercased()
         if configuredBlockerRevision != blocker.revision || configuredCosmeticHost != cosmeticHost {
             controller.removeScriptMessageHandler(forName: CosmeticFilterEngine.messageName)
+            controller.removeScriptMessageHandler(forName: VisualBlockerEngine.messageName)
             controller.removeAllUserScripts()
             controller.add(self, name: CosmeticFilterEngine.messageName)
+            controller.add(self, name: VisualBlockerEngine.messageName)
             if blocker.policy.enabled && blocker.cosmeticEnabled,
                let cosmeticHost,
                let script = CosmeticFilterEngine.script(for: blocker.cosmeticRules,
@@ -334,12 +361,18 @@ final class WebKitSession: NSObject, BrowserSession, WKNavigationDelegate, WKUID
                                                        host: cosmeticHost, versionKey: blocker.cosmeticCacheKey) {
                 controller.addUserScript(script)
             }
+            if blocker.policy.enabled && (privacyMode == .private || blocker.policy.allowsBlocking(url ?? webView.url)) {
+                controller.addUserScript(VisualBlockerEngine.script)
+            }
             configuredBlockerRevision = blocker.revision
             configuredCosmeticHost = cosmeticHost
         }
         applyBlocker(for: url ?? webView.url)
         if webView.url != nil && (!allowsBlocking(webView.url, blocker: blocker) || !blocker.cosmeticEnabled) {
             webView.evaluateJavaScript("document.getElementById('paper-cosmetic')?.remove()", completionHandler: nil)
+        }
+        if webView.url != nil && !allowsBlocking(webView.url, blocker: blocker) {
+            webView.evaluateJavaScript(VisualBlockerEngine.teardown, completionHandler: nil)
         }
     }
 

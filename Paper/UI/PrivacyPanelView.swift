@@ -42,6 +42,10 @@ struct PrivacyPanelView: View {
                 }
                 LabeledContent("Ads & trackers", value: protectedHere && blocker.isActive ? "Blocked where supported" : "Inactive on this site")
                 LabeledContent("Cosmetic filtering", value: protectedHere && blocker.cosmeticEnabled && blocker.isActive ? "On" : "Off")
+                LabeledContent("Visual ad masking", value: protectedHere ? "On" : "Off")
+                if let count = browser.activeTab?.blockerStatistics.visualRegionsReplaced, count > 0 {
+                    LabeledContent("Visual regions replaced", value: "\(count)")
+                }
             } header: { Text("Privacy") }
 
             if site != nil {

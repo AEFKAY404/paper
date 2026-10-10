@@ -1,0 +1,62 @@
+[
+  {
+    "dialogs" : 0,
+    "error" : "",
+    "installed" : true,
+    "placeholders" : 0,
+    "replaced" : 0,
+    "site" : "reddit",
+    "snapshot" : true,
+    "title" : "Reddit - The heart of the internet"
+  },
+  {
+    "dialogs" : 1,
+    "error" : "",
+    "installed" : true,
+    "placeholders" : 7,
+    "replaced" : 7,
+    "site" : "guardian",
+    "snapshot" : true,
+    "title" : "Latest news, sport and opinion from the Guardian"
+  },
+  {
+    "dialogs" : 5,
+    "error" : "",
+    "installed" : true,
+    "placeholders" : 0,
+    "replaced" : 0,
+    "site" : "verge",
+    "snapshot" : true,
+    "title" : "The Verge"
+  },
+  {
+    "dialogs" : 26,
+    "error" : "",
+    "installed" : true,
+    "placeholders" : 0,
+    "replaced" : 0,
+    "site" : "amazon",
+    "snapshot" : true,
+    "title" : "Amazon.com. Spend less. Smile more."
+  },
+  {
+    "dialogs" : 0,
+    "error" : "",
+    "installed" : true,
+    "placeholders" : 0,
+    "replaced" : 0,
+    "site" : "github-login",
+    "snapshot" : true,
+    "title" : "Sign in to GitHub · GitHub"
+  },
+  {
+    "dialogs" : 4,
+    "error" : "",
+    "installed" : false,
+    "placeholders" : 0,
+    "replaced" : 0,
+    "site" : "youtube",
+    "snapshot" : true,
+    "title" : "YouTube"
+  }
+]

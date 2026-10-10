@@ -8,6 +8,9 @@ struct BlockerStatistics: Equatable {
     var blockedRequests: Int? = nil
     var blockedTrackers: Int? = nil
     var cosmeticMatchesAtLoad = 0
+    /// Counts are observed DOM replacements, never network request matches.
+    var visualRegionsReplaced = 0
+    var visualRegionsCollapsed = 0
 }
 
 struct BlockerPolicy {
