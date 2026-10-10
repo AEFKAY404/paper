@@ -17,6 +17,7 @@ struct PaperSettingsView: View {
     @AppStorage(InteractionPreferences.tabGestureKey) private var tabGesture = TabSwitchGesture.optionSwipe.rawValue
     @AppStorage(InteractionPreferences.feedbackKey) private var gestureFeedback = true
     @AppStorage(InteractionPreferences.reduceMotionKey) private var reduceDecorativeMotion = false
+    @AppStorage(VoiceCommandController.enabledKey) private var voiceEnabled = true
     @AppStorage("paper.blocker.enabled") private var blockerEnabled = true
     @AppStorage("paper.blocker.cosmeticEnabled") private var cosmeticEnabled = true
     @State private var updateStatus = ""
@@ -57,6 +58,13 @@ struct PaperSettingsView: View {
                 .disabled(!customGestures)
                 Toggle("Show transient feedback", isOn: $gestureFeedback)
                 Toggle("Reduce decorative motion", isOn: $reduceDecorativeMotion)
+            }
+            Section("Voice Commands") {
+                Toggle("Voice Commands", isOn: $voiceEnabled)
+                    .accessibilityIdentifier("paper.settings.voiceCommands")
+                LabeledContent("Push to Talk", value: "⌃⇧Space")
+                Text("Hold while speaking. Recognition runs on this Mac only and starts after you grant permission. If on-device recognition is unavailable, voice commands stay off.")
+                    .font(.footnote).foregroundStyle(.secondary)
             }
             Section("Privacy") {
                 Toggle("Block ads and trackers", isOn: $blockerEnabled)

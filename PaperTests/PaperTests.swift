@@ -10,6 +10,7 @@ private final class MockSession: BrowserSession {
     var backCount = 0
     var forwardCount = 0
     var reloadCount = 0
+    var stopCount = 0
     var closed = false
     var snapshotCalls = 0
     var snapshotDelayMs = 0
@@ -22,7 +23,7 @@ private final class MockSession: BrowserSession {
     func goBack() { backCount += 1 }
     func goForward() { forwardCount += 1 }
     func reload() { reloadCount += 1 }
-    func stop() {}
+    func stop() { stopCount += 1 }
     func focus() {}
     func setHistorySwipe(enabled: Bool) {}
     func snapshot(maxWidth: CGFloat) async -> NSImage? {
@@ -75,6 +76,26 @@ struct PaperTests {
         controller.closeTab(secondID)
         #expect(engine.sessions[1].closed)
         #expect(controller.tabs.count == 1)
+    }
+
+    @Test func voiceActionsUseSharedCommandRouter() {
+        let (controller, engine, _) = makeController()
+        controller.start(restorePreviousSession: false)
+        let first = controller.activeTabID!
+        let second = controller.newTab()
+        let ui = BrowserUIState()
+        let onboarding = OnboardingState(defaults: UserDefaults(suiteName: UUID().uuidString)!)
+        BrowserActionRouter.perform(.previousTab, browser: controller, ui: ui, onboarding: onboarding)
+        #expect(controller.activeTabID == first)
+        BrowserActionRouter.perform(.nextTab, browser: controller, ui: ui, onboarding: onboarding)
+        #expect(controller.activeTabID == second)
+        BrowserActionRouter.perform(.stop, browser: controller, ui: ui, onboarding: onboarding)
+        #expect(engine.sessions[1].stopCount == 1)
+        BrowserActionRouter.perform(.navigate("example.com"), browser: controller, ui: ui,
+                                    onboarding: onboarding, searchEngine: .google)
+        #expect(engine.sessions[1].loadedURLs.last?.host == "example.com")
+        BrowserActionRouter.perform(.privacy, browser: controller, ui: ui, onboarding: onboarding)
+        #expect(ui.isPrivacyVisible)
     }
 
     @Test func surfaceColorsBelongToTheirTabs() {

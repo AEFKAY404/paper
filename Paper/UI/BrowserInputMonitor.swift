@@ -6,12 +6,19 @@ import SwiftUI
 @MainActor
 final class BrowserInputMonitor: ObservableObject {
     private var monitor: Any?
+    private var resignObserver: NSObjectProtocol?
     private var gestures = GestureEngine()
+    private var voiceShortcutDown = false
     weak var browserWindow: NSWindow?
 
-    func start(browser: BrowserController, ui: BrowserUIState, onboarding: OnboardingState) {
+    func start(browser: BrowserController, ui: BrowserUIState, onboarding: OnboardingState,
+               voice: VoiceCommandController) {
         guard monitor == nil else { return }
-        monitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .swipe]) { [weak self, weak browser, weak ui, weak onboarding] event in
+        resignObserver = NotificationCenter.default.addObserver(forName: NSApplication.didResignActiveNotification,
+                                                                 object: NSApp, queue: .main) { [voice] _ in
+            MainActor.assumeIsolated { voice.cancel() }
+        }
+        monitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp, .flagsChanged, .swipe]) { [weak self, weak browser, weak ui, weak onboarding, weak voice] event in
             let key = event.charactersIgnoringModifiers?.lowercased() ?? ""
             let code = event.keyCode
             let modifiers = event.modifierFlags.rawValue
@@ -20,9 +27,32 @@ final class BrowserInputMonitor: ObservableObject {
             let deltaY = event.deltaY
             let timestamp = event.timestamp
             let handled = MainActor.assumeIsolated {
+                if let voice, let self, self.voiceShortcutDown {
+                    if event.type == .keyUp && code == 49 {
+                        self.voiceShortcutDown = false
+                        voice.end()
+                        return true
+                    }
+                    if event.type == .flagsChanged {
+                        let flags = event.modifierFlags.intersection([.command, .control, .shift, .option])
+                        if flags != [.control, .shift] { voice.end() }
+                    }
+                }
                 guard let self, let browser, let ui, let onboarding,
                       let browserWindow = self.browserWindow,
                       NSApp.keyWindow === browserWindow, !ui.isHandbookVisible else { return false }
+                if event.type == .keyDown, let voice {
+                    if voice.handleChooserKey(code) { return true }
+                    let flags = event.modifierFlags.intersection([.command, .control, .shift, .option])
+                    if code == 49 && flags == [.control, .shift] {
+                        if !event.isARepeat {
+                            self.voiceShortcutDown = true
+                            voice.begin()
+                        }
+                        return true
+                    }
+                }
+                guard event.type == .keyDown || event.type == .swipe else { return false }
                 return self.handle(key: key, code: code, modifiers: modifiers, isSwipe: isSwipe,
                                    deltaX: deltaX, deltaY: deltaY, timestamp: timestamp,
                                    browser: browser, ui: ui, onboarding: onboarding)
@@ -103,8 +133,11 @@ final class BrowserInputMonitor: ObservableObject {
     }
 
     func stop() {
+        voiceShortcutDown = false
         if let monitor { NSEvent.removeMonitor(monitor) }
         monitor = nil
+        if let resignObserver { NotificationCenter.default.removeObserver(resignObserver) }
+        resignObserver = nil
     }
 }
 

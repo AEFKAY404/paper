@@ -48,15 +48,15 @@ struct PaperApp: App {
                 Button("Back") { perform(.back) }.keyboardShortcut("[")
                 Button("Forward") { perform(.forward) }.keyboardShortcut("]")
                 Button("Reload") { perform(.reload) }.keyboardShortcut("r")
-                Button("Stop Loading") { browser.stop() }.keyboardShortcut(".")
+                Button("Stop Loading") { perform(.stop) }.keyboardShortcut(".")
             }
             CommandMenu("Tabs") {
                 Button("Close Tab") { perform(.closeTab) }.keyboardShortcut("w")
                 Button("Tab Overview") { perform(.overview) }
                     .keyboardShortcut("\\", modifiers: [.command, .shift])
-                Button("Next Tab") { browser.selectAdjacentTab(offset: 1); onboarding.record(.nextTab) }
+                Button("Next Tab") { perform(.nextTab) }
                     .keyboardShortcut(.tab, modifiers: .control)
-                Button("Previous Tab") { browser.selectAdjacentTab(offset: -1) }
+                Button("Previous Tab") { perform(.previousTab) }
                     .keyboardShortcut(.tab, modifiers: [.control, .shift])
             }
             CommandMenu("Privacy") {

@@ -8,8 +8,10 @@ struct ContentView: View {
     @StateObject private var inputMonitor = BrowserInputMonitor()
     @StateObject private var titleBar = PaperTitleBarStyler()
     @StateObject private var previews = TabPreviewStore()
+    @StateObject private var voice = VoiceCommandController()
     @AppStorage("paper.restoreSession") private var restoreSession = true
     @AppStorage("paper.searchEngine") private var searchEngine = SearchEngine.google.rawValue
+    @AppStorage(VoiceCommandController.enabledKey) private var voiceEnabled = true
     @AppStorage(InteractionPreferences.reduceMotionKey) private var reduceDecorativeMotion = false
     @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
@@ -104,11 +106,19 @@ struct ContentView: View {
                     .padding(.trailing, 24)
                     .zIndex(3)
             }
+
+            if voice.state != .idle {
+                VoiceCommandOverlay(voice: voice)
+                    .padding(.top, 56)
+                    .zIndex(5)
+                    .transition(.opacity)
+            }
         }
         .frame(minWidth: 640, minHeight: 420)
         .animation(PaperMotion.overlay(reduceMotion: systemReduceMotion || reduceDecorativeMotion), value: ui.isOverviewVisible)
         .animation(PaperMotion.overlay(reduceMotion: systemReduceMotion || reduceDecorativeMotion), value: ui.isPaletteVisible)
         .animation(PaperMotion.feedback(reduceMotion: systemReduceMotion || reduceDecorativeMotion), value: ui.feedbackText)
+        .animation(PaperMotion.overlay(reduceMotion: systemReduceMotion || reduceDecorativeMotion), value: voice.state)
         .background(BrowserWindowAnchor { window in
             inputMonitor.browserWindow = window
             titleBar.attach(window)
@@ -128,7 +138,8 @@ struct ContentView: View {
             InteractionPreferences().migrateLegacyGestureSetting()
             browser.start(restorePreviousSession: restoreSession)
             onboarding.showIfNeeded()
-            inputMonitor.start(browser: browser, ui: ui, onboarding: onboarding)
+            voice.attach(browser: browser, ui: ui, onboarding: onboarding, openSettings: { openSettings() })
+            inputMonitor.start(browser: browser, ui: ui, onboarding: onboarding, voice: voice)
             updateTitleBar()
         }
         .onChange(of: browser.activeTabID) { _, _ in
@@ -144,7 +155,8 @@ struct ContentView: View {
         .onChange(of: onboarding.step) { _, _ in updateTitleBar() }
         .onChange(of: colorScheme) { _, _ in updateTitleBar() }
         .onChange(of: reduceTransparency) { _, _ in updateTitleBar() }
-        .onDisappear { inputMonitor.stop() }
+        .onChange(of: voiceEnabled) { _, enabled in if !enabled { voice.cancel() } }
+        .onDisappear { inputMonitor.stop(); voice.cancel() }
     }
 
     private func perform(_ action: PaletteAction) {

@@ -1,7 +1,7 @@
 import Foundation
 
 enum PaletteAction: Equatable {
-    case handbook, settings, introduction, newTab, newPrivateTab, closeTab, overview, reload, back, forward, privacy
+    case handbook, settings, introduction, newTab, newPrivateTab, closeTab, nextTab, previousTab, overview, reload, stop, back, forward, privacy
     case switchTab(UUID)
     case navigate(String)
     case none
@@ -33,7 +33,10 @@ struct PaletteSuggestion: Identifiable {
             .init(title: "Privacy Settings", subtitle: "Filters, exceptions, and data clearing", shortcut: "⌘,", action: .settings),
             .init(title: "Tab Overview", subtitle: "See open tabs", shortcut: "⌘⇧\\", action: .overview),
             .init(title: "Close Tab", subtitle: "Close the current tab", shortcut: "⌘W", action: .closeTab),
+            .init(title: "Next Tab", subtitle: "Switch to the next tab", shortcut: "⌃Tab", action: .nextTab),
+            .init(title: "Previous Tab", subtitle: "Switch to the previous tab", shortcut: "⌃⇧Tab", action: .previousTab),
             .init(title: "Reload", subtitle: "Refresh this page", shortcut: "⌘R", action: .reload),
+            .init(title: "Stop Loading", subtitle: "Stop the current page load", shortcut: "⌘.", action: .stop),
             .init(title: "Back", subtitle: "Previous page", shortcut: "⌘[", action: .back),
             .init(title: "Forward", subtitle: "Next page", shortcut: "⌘]", action: .forward),
             .init(title: "Paper Handbook", subtitle: "Learn the controls", shortcut: "⌘?", action: .handbook),

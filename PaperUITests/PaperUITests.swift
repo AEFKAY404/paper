@@ -182,6 +182,7 @@ final class PaperUITests: XCTestCase {
         XCTAssertTrue(app.sliders["paper.settings.newTabTransparency"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.sliders["paper.settings.newTabTint"].exists)
         XCTAssertTrue(app.sliders["paper.settings.newTabBlur"].exists)
+        XCTAssertTrue(app.switches["paper.settings.voiceCommands"].exists)
         let settings = XCTAttachment(screenshot: settingsWindow.exists
                                      ? settingsWindow.screenshot() : app.screenshot())
         settings.name = "Paper typography settings"

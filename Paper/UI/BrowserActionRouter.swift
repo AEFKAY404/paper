@@ -15,12 +15,16 @@ enum BrowserActionRouter {
         case .privacy: ui.openPrivacy()
         case .closeTab:
             browser.closeActiveTab(); onboarding.record(.closeTab)
+        case .nextTab:
+            browser.selectAdjacentTab(offset: 1); onboarding.record(.nextTab)
+        case .previousTab: browser.selectAdjacentTab(offset: -1)
         case .overview:
             ui.openOverview(browser: browser); ui.showFeedback("Tab overview")
         case .switchTab(let id):
             browser.activate(id); ui.dismissPalette(); ui.dismissOverview()
             ui.showFeedback(browser.activeTab?.title ?? "Tab")
         case .reload: browser.reload(); ui.dismissPalette()
+        case .stop: browser.stop(); ui.dismissPalette()
         case .back: browser.goBack(); ui.dismissPalette()
         case .forward: browser.goForward(); ui.dismissPalette()
         case .handbook: ui.openHandbook()

@@ -378,7 +378,8 @@
 				INFOPLIST_KEY_NSCameraUsageDescription = "Allow websites you approve to use the camera in Paper.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSLocationUsageDescription = "Allow websites you approve to use your location in Paper.";
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Allow websites you approve to use the microphone in Paper.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Use the microphone for voice commands you invoke and for websites you approve.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Recognize short Paper voice commands on this Mac when you hold Control-Shift-Space.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -413,7 +414,8 @@
 				INFOPLIST_KEY_NSCameraUsageDescription = "Allow websites you approve to use the camera in Paper.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSLocationUsageDescription = "Allow websites you approve to use your location in Paper.";
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Allow websites you approve to use the microphone in Paper.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Use the microphone for voice commands you invoke and for websites you approve.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Recognize short Paper voice commands on this Mac when you hold Control-Shift-Space.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
