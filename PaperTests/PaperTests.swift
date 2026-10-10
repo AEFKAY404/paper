@@ -47,6 +47,19 @@ private final class MockEngine: BrowserEngine {
 }
 
 @MainActor
+private final class MockAccountInspector: AccountSessionInspecting {
+    var cookies: [AccountCookieMetadata] = []
+    var cleared: [String] = []
+    var onChange: (@MainActor () -> Void)?
+    func cookieMetadata() async -> [AccountCookieMetadata] { cookies }
+    func setCookieChangeHandler(_ handler: (@MainActor () -> Void)?) { onChange = handler }
+    func clearSessionData(for site: String) async {
+        cleared.append(site)
+        cookies.removeAll { SiteIdentity.shared.domain(forHost: $0.domain) == site }
+    }
+}
+
+@MainActor
 struct PaperTests {
     private func makeController() -> (BrowserController, MockEngine, SessionStore) {
         let engine = MockEngine()
@@ -276,11 +289,57 @@ struct PaperTests {
                                     openSettings: { settingsOpened = true })
         #expect(settingsOpened)
         #expect(PaletteSuggestion.matching("site privacy", tabs: browser.tabs).first?.action == .privacy)
+        #expect(PaletteSuggestion.matching("accounts", tabs: browser.tabs).first?.action == .accounts)
+        BrowserActionRouter.perform(.accounts, browser: browser, ui: ui, onboarding: onboarding)
+        #expect(ui.isAccountsVisible)
         BrowserActionRouter.perform(.privacy, browser: browser, ui: ui, onboarding: onboarding)
         #expect(ui.isPrivacyVisible)
         BrowserActionRouter.perform(.newPrivateTab, browser: browser, ui: ui, onboarding: onboarding)
         #expect(browser.activeTab?.privacyMode == .private)
         #expect(!ui.isPrivacyVisible)
+    }
+
+    @Test func accountSignOutRefreshesOnlyMatchingStandardTabs() async {
+        let (browser, engine, _) = makeController()
+        browser.start(restorePreviousSession: false)
+        browser.newTab(url: URL(string: "https://github.com/settings"), activate: false)
+        browser.newTab(url: URL(string: "https://gist.github.com/example"), activate: false)
+        browser.newTab(url: URL(string: "https://example.com/"), activate: false)
+        browser.newTab(url: URL(string: "https://github.com/private"), activate: false, privacyMode: .private)
+        let inspector = MockAccountInspector()
+        inspector.cookies = [
+            .init(name: "user_session", domain: ".github.com", isSecure: true, isHTTPOnly: true, isPersistent: true),
+            .init(name: "auth_session", domain: "example.com", isSecure: true, isHTTPOnly: true, isPersistent: true),
+            .init(name: "refresh_token", domain: "example.com", isSecure: true, isHTTPOnly: true, isPersistent: true)
+        ]
+        let manager = AccountSessionManager(inspector: inspector)
+        await manager.refresh()
+        #expect(manager.sessions.map(\.registrableDomain).sorted() == ["example.com", "github.com"])
+        let count = await manager.signOut(site: "github.com", browser: browser)
+        #expect(count == 2)
+        #expect(inspector.cleared == ["github.com"])
+        #expect(engine.sessions.map(\.reloadCount) == [0, 1, 1, 0, 0])
+        #expect(manager.sessions.map(\.registrableDomain) == ["example.com"])
+        let allCount = await manager.signOutAll(browser: browser)
+        #expect(allCount == 1)
+        #expect(inspector.cleared == ["github.com", "example.com"])
+        #expect(engine.sessions.map(\.reloadCount) == [0, 1, 1, 1, 0])
+        #expect(manager.sessions.isEmpty)
+    }
+
+    @Test func accountInventoryObservesChangesOnlyWhileVisible() async {
+        let inspector = MockAccountInspector()
+        let manager = AccountSessionManager(inspector: inspector)
+        manager.observeWhileVisible(true)
+        inspector.cookies = [.init(name: "user_session", domain: "github.com",
+                                   isSecure: true, isHTTPOnly: true, isPersistent: true)]
+        inspector.onChange?()
+        for _ in 0..<40 where manager.sessions.isEmpty {
+            try? await Task.sleep(for: .milliseconds(50))
+        }
+        #expect(manager.sessions.map(\.registrableDomain) == ["github.com"])
+        manager.observeWhileVisible(false)
+        #expect(inspector.onChange == nil)
     }
 
     @Test func snapshotQueueIsBoundedAndCacheReused() async {

@@ -1,7 +1,7 @@
 import Foundation
 
 enum PaletteAction: Equatable {
-    case handbook, settings, introduction, newTab, newPrivateTab, closeTab, nextTab, previousTab, overview, reload, stop, back, forward, privacy
+    case handbook, settings, introduction, newTab, newPrivateTab, closeTab, nextTab, previousTab, overview, reload, stop, back, forward, privacy, accounts
     case switchTab(UUID)
     case navigate(String)
     case none
@@ -13,6 +13,7 @@ enum PaletteAction: Equatable {
             value.caseInsensitiveCompare("paper handbook") == .orderedSame {
             return .handbook
         }
+        if value.caseInsensitiveCompare("accounts") == .orderedSame { return .accounts }
         return .navigate(value)
     }
 }
@@ -30,6 +31,7 @@ struct PaletteSuggestion: Identifiable {
             .init(title: "New Private Tab", subtitle: "Browse with temporary site storage", shortcut: "⌘⇧N", action: .newPrivateTab),
             .init(title: "Privacy", subtitle: "Protection, site data, and permissions", shortcut: "", action: .privacy),
             .init(title: "Site Privacy", subtitle: "Controls for the current site", shortcut: "", action: .privacy),
+            .init(title: "Accounts", subtitle: "Detected website sessions", shortcut: "", action: .accounts),
             .init(title: "Privacy Settings", subtitle: "Filters, exceptions, and data clearing", shortcut: "⌘,", action: .settings),
             .init(title: "Tab Overview", subtitle: "See open tabs", shortcut: "⌘⇧\\", action: .overview),
             .init(title: "Close Tab", subtitle: "Close the current tab", shortcut: "⌘W", action: .closeTab),

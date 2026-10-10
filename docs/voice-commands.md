@@ -22,6 +22,7 @@ The transcript goes to `VoiceIntentResolving`, implemented by `RuleBasedVoiceInt
 | “Back”, “Forward”, “Reload”, “Stop loading” | Page navigation |
 | “Show tabs” | Tab overview |
 | “Open privacy”, “Open settings”, “Open handbook” | Native Paper surfaces |
+| “Open accounts” | Detected website sessions |
 | “Search for macOS WebKit” | Search through Paper's current search setting |
 | “Open github.com” | Address navigation |
 

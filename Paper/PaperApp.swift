@@ -7,6 +7,7 @@ struct PaperApp: App {
     @StateObject private var browser: BrowserController
     @StateObject private var ui = BrowserUIState()
     @StateObject private var onboarding = OnboardingState()
+    @StateObject private var accounts = AccountSessionManager(inspector: WebKitAccountInspector())
 
     init() {
         let engine = WebKitEngine()
@@ -26,7 +27,8 @@ struct PaperApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView(browser: browser, ui: ui, onboarding: onboarding, blocker: webKitEngine.blocker)
+            ContentView(browser: browser, ui: ui, onboarding: onboarding, blocker: webKitEngine.blocker,
+                        accounts: accounts)
                 .preferredColorScheme(testColorScheme)
                 .onAppear { lifecycle.browser = browser }
         }
@@ -62,6 +64,9 @@ struct PaperApp: App {
             CommandMenu("Privacy") {
                 Button("Site Privacy") { perform(.privacy) }
                 Button("New Private Tab") { perform(.newPrivateTab) }
+            }
+            CommandMenu("Accounts") {
+                Button("Show Accounts") { perform(.accounts) }
             }
             CommandGroup(replacing: .help) {
                 Button("Paper Handbook") { ui.openHandbook() }

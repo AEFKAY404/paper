@@ -14,6 +14,7 @@ struct VoiceIntentTests {
             ("go back", .back), ("previous page", .back), ("next page", .forward),
             ("refresh page", .reload), ("stop loading", .stop),
             ("show tabs", .overview), ("open privacy", .privacy),
+            ("open accounts", .accounts),
             ("open settings", .settings), ("open handbook", .handbook),
             ("new private tab", .newPrivateTab)
         ]

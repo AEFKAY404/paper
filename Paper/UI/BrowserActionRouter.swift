@@ -13,6 +13,7 @@ enum BrowserActionRouter {
             ui.dismissPalette(); ui.dismissOverview(); ui.isPrivacyVisible = false
             browser.newTab(privacyMode: .private)
         case .privacy: ui.openPrivacy()
+        case .accounts: ui.openAccounts()
         case .closeTab:
             browser.closeActiveTab(); onboarding.record(.closeTab)
         case .nextTab:
@@ -36,7 +37,7 @@ enum BrowserActionRouter {
             browser.navigate(input, searchEngine: searchEngine); ui.dismissPalette()
         case .none: ui.dismissPalette()
         }
-        if !ui.isPaletteVisible && !ui.isOverviewVisible && !ui.isHandbookVisible && !ui.isPrivacyVisible {
+        if !ui.isPaletteVisible && !ui.isOverviewVisible && !ui.isHandbookVisible && !ui.isPrivacyVisible && !ui.isAccountsVisible {
             DispatchQueue.main.async { browser.activeSession?.focus() }
         }
     }

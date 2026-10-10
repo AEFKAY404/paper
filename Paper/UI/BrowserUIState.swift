@@ -8,6 +8,7 @@ final class BrowserUIState: ObservableObject {
     @Published private(set) var focusRequest = 0
     @Published var isHandbookVisible = false
     @Published var isPrivacyVisible = false
+    @Published var isAccountsVisible = false
     @Published var isOverviewVisible = false
     @Published var overviewQuery = ""
     @Published var overviewSelectionID: UUID?
@@ -35,6 +36,12 @@ final class BrowserUIState: ObservableObject {
         dismissPalette()
         isOverviewVisible = false
         isPrivacyVisible = true
+    }
+
+    func openAccounts() {
+        dismissPalette()
+        isOverviewVisible = false
+        isAccountsVisible = true
     }
 
     func openOverview(browser: BrowserController) {

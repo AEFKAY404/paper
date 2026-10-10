@@ -48,6 +48,7 @@ struct RuleBasedVoiceIntentResolver: VoiceIntentResolving {
         .init(action: .stop, label: "Stop loading", phrases: ["stop", "stop loading", "stop page"]),
         .init(action: .overview, label: "Tab overview", phrases: ["tab overview", "show tabs", "show tab overview", "open tab overview"]),
         .init(action: .privacy, label: "Privacy", phrases: ["privacy", "open privacy", "site privacy", "open site privacy"]),
+        .init(action: .accounts, label: "Accounts", phrases: ["accounts", "open accounts", "show accounts"]),
         .init(action: .settings, label: "Settings", phrases: ["settings", "open settings", "paper settings"]),
         .init(action: .handbook, label: "Paper handbook", phrases: ["handbook", "open handbook", "paper handbook", "open help"])
     ]

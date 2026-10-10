@@ -2,6 +2,27 @@ import XCTest
 
 final class PaperUITests: XCTestCase {
     @MainActor
+    func testAccountsPaletteAndMenu() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-paper.restoreSession", "NO", "-paper.onboarding.completed", "YES", "-ApplePersistenceIgnoreState", "YES"]
+        app.launch()
+        app.activate()
+        app.typeKey("l", modifierFlags: .command)
+        let palette = app.textFields["paper.commandPalette.input"]
+        XCTAssertTrue(palette.waitForExistence(timeout: 5))
+        palette.typeText("Accounts\n")
+        XCTAssertTrue(app.staticTexts["Active sessions detected by Paper"].waitForExistence(timeout: 5))
+        let accountsCapture = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
+        accountsCapture.name = "Accounts empty state"
+        accountsCapture.lifetime = .keepAlways
+        add(accountsCapture)
+        app.buttons["Done"].click()
+        app.menuBars.menuBarItems["Accounts"].click()
+        app.menuBars.menuItems["Show Accounts"].click()
+        XCTAssertTrue(app.staticTexts["Active sessions detected by Paper"].waitForExistence(timeout: 5))
+    }
+
+    @MainActor
     func testPrivateTabAndPrivacyPanel() throws {
         let app = XCUIApplication()
         app.launchArguments = ["-paper.restoreSession", "NO", "-paper.onboarding.completed", "YES", "-ApplePersistenceIgnoreState", "YES"]

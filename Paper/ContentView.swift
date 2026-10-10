@@ -5,6 +5,7 @@ struct ContentView: View {
     @ObservedObject var ui: BrowserUIState
     @ObservedObject var onboarding: OnboardingState
     @ObservedObject var blocker: ContentBlockerEngine
+    @ObservedObject var accounts: AccountSessionManager
     @StateObject private var inputMonitor = BrowserInputMonitor()
     @StateObject private var titleBar = PaperTitleBarStyler()
     @StateObject private var previews = TabPreviewStore()
@@ -33,16 +34,16 @@ struct ContentView: View {
             if let tab = browser.activeTab {
                 if tab.kind == .newTab {
                     NewTabView(tabID: tab.id,
-                               mayFocus: !ui.isPaletteVisible && !ui.isOverviewVisible && !ui.isPrivacyVisible && onboarding.step != .search,
+                               mayFocus: !ui.isPaletteVisible && !ui.isOverviewVisible && !ui.isPrivacyVisible && !ui.isAccountsVisible && onboarding.step != .search,
                                privacyMode: tab.privacyMode) { input in
                         browser.navigate(input, searchEngine: selectedSearchEngine)
                     }
                     .id(tab.id)
-                    .accessibilityHidden(ui.isOverviewVisible || ui.isPaletteVisible || ui.isPrivacyVisible)
+                    .accessibilityHidden(ui.isOverviewVisible || ui.isPaletteVisible || ui.isPrivacyVisible || ui.isAccountsVisible)
                 } else if let session = browser.activeSession {
                     BrowserSurface(session: session)
                         .id(tab.id)
-                        .accessibilityHidden(ui.isOverviewVisible || ui.isPaletteVisible || ui.isPrivacyVisible)
+                        .accessibilityHidden(ui.isOverviewVisible || ui.isPaletteVisible || ui.isPrivacyVisible || ui.isAccountsVisible)
                 }
             }
 
@@ -134,6 +135,11 @@ struct ContentView: View {
         }) {
             PrivacyPanelView(browser: browser, blocker: blocker, openPrivateTab: { perform(.newPrivateTab) })
         }
+        .sheet(isPresented: $ui.isAccountsVisible, onDismiss: {
+            DispatchQueue.main.async { browser.activeSession?.focus() }
+        }) {
+            AccountsView(manager: accounts, browser: browser)
+        }
         .onAppear {
             InteractionPreferences().migrateLegacyGestureSetting()
             browser.start(restorePreviousSession: restoreSession)
@@ -144,7 +150,7 @@ struct ContentView: View {
         }
         .onChange(of: browser.activeTabID) { _, _ in
             updateTitleBar()
-            guard !ui.isPaletteVisible && !ui.isOverviewVisible && !ui.isPrivacyVisible else { return }
+            guard !ui.isPaletteVisible && !ui.isOverviewVisible && !ui.isPrivacyVisible && !ui.isAccountsVisible else { return }
             DispatchQueue.main.async { browser.activeSession?.focus() }
         }
         .onChange(of: browser.tabs.map(\.surfaceRevision)) { _, _ in updateTitleBar() }
@@ -152,6 +158,7 @@ struct ContentView: View {
         .onChange(of: ui.isOverviewVisible) { _, _ in updateTitleBar() }
         .onChange(of: ui.isHandbookVisible) { _, _ in updateTitleBar() }
         .onChange(of: ui.isPrivacyVisible) { _, _ in updateTitleBar() }
+        .onChange(of: ui.isAccountsVisible) { _, _ in updateTitleBar() }
         .onChange(of: onboarding.step) { _, _ in updateTitleBar() }
         .onChange(of: colorScheme) { _, _ in updateTitleBar() }
         .onChange(of: reduceTransparency) { _, _ in updateTitleBar() }

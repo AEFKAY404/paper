@@ -56,6 +56,23 @@ final class SiteDataManager {
         }
     }
 
+    /// Clears session-bearing storage for a registrable site without removing its caches.
+    func clearSessionData(for site: String) async {
+        let types: Set<String> = [WKWebsiteDataTypeCookies, WKWebsiteDataTypeLocalStorage,
+                                  WKWebsiteDataTypeSessionStorage, WKWebsiteDataTypeIndexedDBDatabases,
+                                  WKWebsiteDataTypeServiceWorkerRegistrations, WKWebsiteDataTypeWebSQLDatabases]
+        let matchingRecords = await records(for: site, types: types)
+        await withCheckedContinuation { continuation in
+            store.removeData(ofTypes: types, for: matchingRecords) { continuation.resume() }
+        }
+        // Some cookies are absent from website-data records. Delete those by domain too.
+        for cookie in await allCookies() where matches(cookie.domain, site: site) {
+            await withCheckedContinuation { continuation in
+                store.httpCookieStore.delete(cookie) { continuation.resume() }
+            }
+        }
+    }
+
     func clearAll(_ selection: BrowsingDataSelection) async {
         guard !selection.types.isEmpty else { return }
         let records = await allRecords(types: selection.types)

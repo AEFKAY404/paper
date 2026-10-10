@@ -131,6 +131,16 @@ final class BrowserController: ObservableObject {
     func reload() { clearActiveError(); activeSession?.reload() }
     func stop() { activeSession?.stop() }
 
+    @discardableResult
+    func reloadStandardTabs(forSites sites: Set<String>) -> Int {
+        let affected = tabs.filter { tab in
+            tab.privacyMode == .standard &&
+            SiteIdentity.shared.domain(for: tab.url).map(sites.contains) == true
+        }
+        for tab in affected { sessions[tab.id]?.reload() }
+        return affected.count
+    }
+
     func setHistorySwipe(enabled: Bool) {
         sessions.values.forEach { $0.setHistorySwipe(enabled: enabled) }
     }
