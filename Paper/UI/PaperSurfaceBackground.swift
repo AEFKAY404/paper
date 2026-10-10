@@ -5,10 +5,18 @@ import SwiftUI
 enum PaperSurfaceBackground {
     nonisolated static let transparencyKey = "paper.newTabTransparency"
     nonisolated static let defaultTransparency = 30.0
+    nonisolated static let tintKey = "paper.newTabTint"
+    nonisolated static let blurKey = "paper.newTabBlur"
+    nonisolated static let maximumTintOpacity = 0.68
     static var nativeColor: NSColor { .windowBackgroundColor }
     static var color: Color { Color(nsColor: nativeColor) }
 
-    nonisolated static func materialFraction(for percentage: Double) -> Double {
+    nonisolated static var initialEffectPercentage: Double {
+        let stored = UserDefaults.standard.object(forKey: transparencyKey) as? Double
+        return stored ?? defaultTransparency
+    }
+
+    nonisolated static func fraction(for percentage: Double) -> Double {
         min(100, max(0, percentage)) / 100
     }
 
@@ -30,19 +38,29 @@ enum PaperSurfaceBackground {
     }
 }
 
-/// A desktop-backed surface for native new tabs. The opaque base prevents an
-/// old webpage from showing through while the active tab changes.
+/// The blur slider controls material visibility. At zero, the surface itself
+/// is clear; Reduce Transparency always restores an opaque Paper background.
 struct PaperNewTabSurface: View {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-    @AppStorage(PaperSurfaceBackground.transparencyKey)
-    private var transparency = PaperSurfaceBackground.defaultTransparency
+    @AppStorage(PaperSurfaceBackground.tintKey)
+    private var tint = PaperSurfaceBackground.initialEffectPercentage
+    @AppStorage(PaperSurfaceBackground.blurKey)
+    private var blur = PaperSurfaceBackground.initialEffectPercentage
 
     var body: some View {
         ZStack {
-            PaperSurfaceBackground.color
-            if !reduceTransparency && PaperSurfaceBackground.materialFraction(for: transparency) > 0 {
-                PaperWindowMaterial()
-                PaperSurfaceBackground.color.opacity(1 - PaperSurfaceBackground.materialFraction(for: transparency))
+            if reduceTransparency {
+                PaperSurfaceBackground.color
+            } else {
+                Color.clear
+                if PaperSurfaceBackground.fraction(for: blur) > 0 {
+                    PaperWindowMaterial()
+                        .opacity(PaperSurfaceBackground.fraction(for: blur))
+                    PaperSurfaceBackground.color.opacity(
+                        PaperSurfaceBackground.maximumTintOpacity *
+                        PaperSurfaceBackground.fraction(for: tint) *
+                        PaperSurfaceBackground.fraction(for: blur))
+                }
             }
         }
         .allowsHitTesting(false)

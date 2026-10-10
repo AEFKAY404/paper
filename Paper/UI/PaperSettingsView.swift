@@ -7,8 +7,10 @@ struct PaperSettingsView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @AppStorage("paper.searchEngine") private var searchEngine = SearchEngine.google.rawValue
-    @AppStorage(PaperSurfaceBackground.transparencyKey)
-    private var newTabTransparency = PaperSurfaceBackground.defaultTransparency
+    @AppStorage(PaperSurfaceBackground.tintKey)
+    private var newTabTint = PaperSurfaceBackground.initialEffectPercentage
+    @AppStorage(PaperSurfaceBackground.blurKey)
+    private var newTabBlur = PaperSurfaceBackground.initialEffectPercentage
     @AppStorage("paper.restoreSession") private var restoreSession = true
     @AppStorage("paper.historyGestures") private var historyGestures = true
     @AppStorage(InteractionPreferences.customGesturesKey) private var customGestures = false
@@ -31,19 +33,15 @@ struct PaperSettingsView: View {
                 Toggle("Restore open tabs at launch", isOn: $restoreSession)
             }
             Section("Appearance") {
-                HStack {
-                    Slider(value: $newTabTransparency, in: 0...100, step: 1) {
-                        Text("New tab transparency")
-                    }
-                        .accessibilityIdentifier("paper.settings.newTabTransparency")
-                        .accessibilityValue("\(Int(newTabTransparency)) percent")
-                    Text("\(Int(newTabTransparency))%")
-                        .monospacedDigit()
-                        .frame(width: 44, alignment: .trailing)
-                }
+                appearanceSlider("New tab transparency", value: linkedTransparency,
+                                 identifier: "paper.settings.newTabTransparency")
+                appearanceSlider("Tint", value: $newTabTint,
+                                 identifier: "paper.settings.newTabTint")
+                appearanceSlider("Blur", value: $newTabBlur,
+                                 identifier: "paper.settings.newTabBlur")
                 Text(reduceTransparency
                      ? "macOS Reduce Transparency is on, so new tabs use a solid background."
-                     : "0% is solid Paper; 100% uses the native blurred material.")
+                     : "Transparency moves Tint and Blur together. Blur at 0% leaves the surface clear.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
@@ -125,6 +123,25 @@ struct PaperSettingsView: View {
             PaperSurfaceBackground.configure(window)
             window?.backgroundColor = PaperSurfaceBackground.resolvedNativeColor(for: colorScheme)
         })
+    }
+
+    private var linkedTransparency: Binding<Double> {
+        Binding(get: { (newTabTint + newTabBlur) / 2 }, set: { percentage in
+            newTabTint = percentage
+            newTabBlur = percentage
+            UserDefaults.standard.set(percentage, forKey: PaperSurfaceBackground.transparencyKey)
+        })
+    }
+
+    private func appearanceSlider(_ title: String, value: Binding<Double>, identifier: String) -> some View {
+        HStack {
+            Slider(value: value, in: 0...100, step: 1) { Text(title) }
+                .accessibilityIdentifier(identifier)
+                .accessibilityValue("\(Int(value.wrappedValue)) percent")
+            Text("\(Int(value.wrappedValue))%")
+                .monospacedDigit()
+                .frame(width: 44, alignment: .trailing)
+        }
     }
 }
 
